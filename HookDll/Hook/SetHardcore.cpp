@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include <set>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,7 +12,7 @@ SetHardcore* SetHardcore::g_self;
 void SetHardcore::EnableHook() {
 	originalMethod = (OriginalMethodPtr)HookEngine(
 		SET_IS_HARDCORE,
-		HookedMethod,
+		reinterpret_cast<void*>(HookedMethod),
 		m_dataQueue,
 		m_hEvent,
 		TYPE_GameInfo_IsHardcore
@@ -28,10 +27,6 @@ SetHardcore::SetHardcore(DataQueue* dataQueue, HANDLE hEvent) {
 
 SetHardcore::SetHardcore() {
 	m_hEvent = nullptr;
-}
-
-void SetHardcore::DisableHook() {
-	Unhook((PVOID*)&originalMethod, HookedMethod);
 }
 
 void* __fastcall SetHardcore::HookedMethod(void* This, bool isHardcore) {

@@ -1,6 +1,6 @@
 ﻿using EvilsoftCommons.Exceptions;
 using IAGrim.Settings;
-using IAGrim.UI.Popups;
+// using IAGrim.UI.Popups;
 using log4net;
 using Newtonsoft.Json;
 using System;
@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Runtime.InteropServices;
 using Timer = System.Timers.Timer;
+using IAGrim.Overwrites.MessageBox;
 
 namespace IAGrim.Utilities {
     /// <summary>
@@ -26,12 +27,13 @@ namespace IAGrim.Utilities {
         private string _downloadUri = string.Empty;
         private string _installerPath = string.Empty;
         private readonly SettingsService _settings;
-        private DownloadingUpdateModal? _progressModal = null;
+        // TODO
+        // private DownloadingUpdateModal? _progressModal = null;
         private static readonly ILog Logger = LogManager.GetLogger(typeof(AutomaticUpdateChecker));
 
-        [DllImport("kernel32")]
-        private static extern UInt64 GetTickCount64();
+        private readonly DateTime _startupTime = DateTime.UtcNow;
 
+        // TODO change url
         private const string Url = "https://api.github.com/repos/marius00/iagd/releases/latest";
 
         private class GitHubAsset {
@@ -61,7 +63,7 @@ namespace IAGrim.Utilities {
                 }
 
                 bool hasBeenMinimizedRecently = (DateTime.UtcNow - _lastTimeNotMinimized).TotalHours < 38;
-                if (GetTickCount64() > 5 * 60 * 1000 && hasBeenMinimizedRecently && ShouldCheckForUpdates()) {
+                if ((DateTime.UtcNow - _startupTime).TotalMinutes > 5 && hasBeenMinimizedRecently && ShouldCheckForUpdates()) {
                     CheckForUpdates();
                     int checkIntervalDays = _settings.GetPersistent().CheckUpdatesDaily ? 1 : 7;
                     _settings.GetPersistent().NextUpdateCheck = DateTime.UtcNow.AddDays(checkIntervalDays);
@@ -93,7 +95,7 @@ namespace IAGrim.Utilities {
                 var release = JsonConvert.DeserializeObject<GitHubRelease>(jsonContent);
                 if (release == null) {
                     if (userInitiated) {
-                        MessageBox.Show("Something went wrong checking for updates", "Something went wrong");
+                        _ = MessageBox.Show("Something went wrong checking for updates", "Something went wrong", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                     Logger.Warn("Could not parse JSON in version check");
                     return;
@@ -103,7 +105,7 @@ namespace IAGrim.Utilities {
                 _downloadUri = release.Assets?.Count > 0 ? release.Assets[0].BrowserDownloadUrl ?? string.Empty : string.Empty;
                 if (string.IsNullOrEmpty(version) || string.IsNullOrEmpty(_downloadUri)) {
                     if (userInitiated) {
-                        MessageBox.Show("Something went wrong checking for updates", "Something went wrong");
+                        _ = MessageBox.Show("Something went wrong checking for updates", "Something went wrong", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                     Logger.Warn("Could not check version");
                     return;
@@ -114,59 +116,66 @@ namespace IAGrim.Utilities {
                 // users a downgrade as an update.
                 if (VersionUtility.IsNewerThan(version, ExceptionReporter.VersionString) || forceUpdate) {
                     Logger.Info($"Latest version is {version}, local version is {ExceptionReporter.VersionString}, update available");
-                    if (new UpdateModal(_settings, version, forceUpdate).ShowDialog() == DialogResult.OK) {
-                        Download(version);
-                        _progressModal = new DownloadingUpdateModal();
-                        _progressModal.ShowDialog();
-                    } else {
-                        Logger.Info("User was made aware of a new update, chose not to update.");
-                    }
+                    // TODO
+                    _ = MessageBox.Show("New version available! Please download it.", "New updates", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    // if (new UpdateModal(_settings, version, forceUpdate).ShowDialog() == DialogResult.OK) {
+                    //     Download(version);
+                    //     _progressModal = new DownloadingUpdateModal();
+                    //     _progressModal.ShowDialog();
+                    // } else {
+                    //     Logger.Info("User was made aware of a new update, chose not to update.");
+                    // }
                 } else if(userInitiated) {
-                    MessageBox.Show("You are on the latest version", "No new updates");
+                    _ = MessageBox.Show("You are on the latest version", "No new updates", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    Logger.Info("Is latest version.");
                 }
             }
             catch (Exception ex) {
                 Logger.Warn(ex);
                 if (userInitiated) {
-                    MessageBox.Show("Something went wrong checking for updates", "Something went wrong");
+                    _ = MessageBox.Show("Something went wrong checking for updates", "Something went wrong", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    Logger.Warn("Could not check version");
                 }
             }
         }
 
         private void Download(string version) {
-            var downloadsFolder = GlobalPaths.DownloadsFolder ?? System.IO.Path.GetTempPath();
-            _installerPath = Path.Combine(downloadsFolder, $"IAGD-{version}.exe");
-            Logger.Info($"Downloading new update to {_installerPath}");
-
-            WebClient client = new WebClient();
-            client.DownloadProgressChanged += Client_DownloadProgressChanged;
-            client.DownloadFileCompleted += Client_DownloadFileCompleted; ;
-            client.DownloadFileAsync(new Uri(_downloadUri), _installerPath);
-            _progressModal?.FormClosing += (_, __) => {
-                client.CancelAsync();
-            };
+            // TODO
+            // var downloadsFolder = GlobalPaths.DownloadsFolder ?? System.IO.Path.GetTempPath();
+            // _installerPath = Path.Combine(downloadsFolder, $"IAGD-{version}.exe");
+            // Logger.Info($"Downloading new update to {_installerPath}");
+            //
+            // WebClient client = new WebClient();
+            // client.DownloadProgressChanged += Client_DownloadProgressChanged;
+            // client.DownloadFileCompleted += Client_DownloadFileCompleted; ;
+            // client.DownloadFileAsync(new Uri(_downloadUri), _installerPath);
+            // _progressModal?.FormClosing += (_, __) => {
+            //     client.CancelAsync();
+            // };
         }
 
         private void Client_DownloadProgressChanged(object sender, DownloadProgressChangedEventArgs e) {
-            if (_progressModal == null) {
-                return;
-            }
-
-            if (_progressModal.InvokeRequired) {
-                _progressModal.Invoke((System.Windows.Forms.MethodInvoker)delegate {
-                    _progressModal?.ProgressBar.Value = e.ProgressPercentage;
-                });
-            } else {
-                _progressModal?.ProgressBar.Value = e.ProgressPercentage;
-            }
+            // TODO
+            // if (_progressModal == null) {
+            //     return;
+            // }
+            //
+            // if (_progressModal.InvokeRequired) {
+            //     _progressModal.Invoke((System.Windows.Forms.MethodInvoker)delegate {
+            //         _progressModal?.ProgressBar.Value = e.ProgressPercentage;
+            //     });
+            // } else {
+            //     _progressModal?.ProgressBar.Value = e.ProgressPercentage;
+            // }
         }
 
         private void Client_DownloadFileCompleted(object? sender, AsyncCompletedEventArgs e) {
-            Logger.Info("Update download complete, initating installer and exiting IA");
-
-            // Start installer and exit IAGD
-            Process.Start(new ProcessStartInfo { FileName = "file://" + _installerPath, UseShellExecute = true });
-            System.Environment.Exit(0);
+            // TODO
+            // Logger.Info("Update download complete, initating installer and exiting IA");
+            //
+            // // Start installer and exit IAGD
+            // Process.Start(new ProcessStartInfo { FileName = "file://" + _installerPath, UseShellExecute = true });
+            // System.Environment.Exit(0);
         }
 
         public void Dispose() {

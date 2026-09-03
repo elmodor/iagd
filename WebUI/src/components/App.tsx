@@ -21,6 +21,8 @@ import IItemAggregateRow from "../interfaces/IItemAggregateRow";
 import {IReplicaRow} from "../interfaces/IReplicaRow";
 import GdSeasonError from "./GdSeasonError";
 import NumericFilterBanner from "./NumericFilterBanner";
+import {initializeTranslations} from "../translations/EmbeddedTranslator";
+import {initializeItemSetAssociations} from "../integration/ItemSetService";
 
 interface ApplicationState {
   items: IItem[][];
@@ -45,6 +47,8 @@ interface ApplicationState {
   easterEggMode: boolean;
   gdSeasonError: boolean;
   showNumericFilterBanner: boolean;
+  translationsInitialized: boolean;
+  itemSetAssociationsInitialized: boolean;
 }
 
 interface IOMessage {
@@ -127,6 +131,8 @@ class App extends PureComponent<object, object> {
     easterEggMode: false,
     gdSeasonError: false,
     showNumericFilterBanner: false,
+    translationsInitialized: false,
+    itemSetAssociationsInitialized: false,
   } as ApplicationState;
 
   componentDidMount() {
@@ -134,6 +140,13 @@ class App extends PureComponent<object, object> {
     if (!isEmbedded) {
       this.setState({collectionItems: MockCollectionItemData});
     }
+
+    initializeTranslations().then(() => {
+      this.setState({translationsInitialized: true});
+    });
+    initializeItemSetAssociations().then(() => {
+      this.setState({itemSetAssociationsInitialized: true});
+    });
 
     signalReady()
 
@@ -520,6 +533,9 @@ class App extends PureComponent<object, object> {
 
 
   render() {
+    if (!this.state.translationsInitialized || !this.state.itemSetAssociationsInitialized) {
+      return <Spinner />;
+    }
     if (this.state.easterEggMode) {
       return <EasterEgg close={() => this.setState({easterEggMode: false})}/>;
     }

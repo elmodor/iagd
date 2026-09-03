@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include <stdio.h>
 #include <random>
 #include <stdlib.h>
@@ -12,6 +11,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string.hpp> 
 #include "VTableDispatch.h"
+#include "Conversions.h"
 
 #include "Logger.h"
 std::wstring GetIagdFolder();
@@ -47,7 +47,7 @@ void OnDemandSeedInfo::EnableHook() {
 
 	gameSetDifficultyRampMethod = (OriginalEngineRenderMethodPtr)HookGame(
 		"?SetDifficultyRamp@GameEngine@GAME@@QEAAXH_N@Z",
-		HookedGameSetDifficultyRampMethod,
+		reinterpret_cast<void*>(HookedGameSetDifficultyRampMethod),
 		m_dataQueue,
 		m_hEvent,
 		TYPE_GAMEENGINE_SetDifficultyRamp
@@ -55,18 +55,13 @@ void OnDemandSeedInfo::EnableHook() {
 
 	dll_Engine_Render = (Engine_Render)HookEngine(
 		"?Render@Engine@GAME@@QEAAXXZ",
-		Hooked_Engine_Render,
+		reinterpret_cast<void*>(Hooked_Engine_Render),
 		m_dataQueue,
 		m_hEvent,
 		TYPE_GAMEENGINE_UPDATE
 	);
 
 	LogToFile(LogLevel::INFO, L"Seems we hooked it");
-}
-void OnDemandSeedInfo::DisableHook() {
-	Stop();
-	Unhook((PVOID*)&gameSetDifficultyRampMethod, HookedGameSetDifficultyRampMethod);
-	Unhook((PVOID*)&dll_Engine_Render, Hooked_Engine_Render);
 }
 
 /*
@@ -185,8 +180,8 @@ ParsedSeedRequest* OnDemandSeedInfo::DeserializeReplicaCsv(std::vector<std::stri
 	item.transmuteRecord = tokens.at(idx++);
 
 	if (isNewDlc) {
-		auto ascendantAffixNameRecord  = tokens.at(idx++);
-		auto ascendantAffix2hNameRecord= tokens.at(idx++);
+		item.ascendant1  = tokens.at(idx++);
+		item.ascendant2= tokens.at(idx++);
 	}
 
 	std::string s;
@@ -202,7 +197,8 @@ ParsedSeedRequest* OnDemandSeedInfo::DeserializeReplicaCsv(std::vector<std::stri
 	boost::algorithm::trim(item.materiaRecord);
 	boost::algorithm::trim(item.enchantmentRecord);
 	boost::algorithm::trim(item.transmuteRecord);
-	// TODO: !! Trip ascendant records
+	boost::algorithm::trim(item.ascendant1);
+	boost::algorithm::trim(item.ascendant2);
 
 	result->itemReplicaInfo = item;
 
@@ -220,7 +216,7 @@ ParsedSeedRequest* OnDemandSeedInfo::DeserializeReplicaCsv(std::vector<std::stri
 /// <returns></returns>
 ParsedSeedRequest* OnDemandSeedInfo::ReadReplicaInfo(const std::wstring& filename) {
 	try {
-		std::ifstream file(filename);
+		std::ifstream file(std::string(filename.begin(), filename.end()));
 		return DeserializeReplicaCsv(GAME::GetNextLineAndSplitIntoTokens(file));
 	}
 	catch (std::exception& ex) {
@@ -263,8 +259,10 @@ std::wstring GetFolderToReadFrom(std::wstring modName, bool isHardcore) {
 
 std::wstring OnDemandSeedInfo::GetModName(GAME::GameInfo* gameInfo) {
 	std::wstring modName;
+   GAME::GameWString gameName{};
 	if (fnGetGameInfoMode(gameInfo) != 1) { // Skip mod name if we're in Crucible, we don't treat that as a mod.
-		fnGetModNameArg(gameInfo, &modName);
+		fnGetModNameArg(gameInfo, &gameName);
+      modName = GameStringToWString(gameName);
 		modName.erase(std::remove(modName.begin(), modName.end(), '\r'), modName.end());
 		modName.erase(std::remove(modName.begin(), modName.end(), '\n'), modName.end());
 	}
@@ -315,7 +313,7 @@ void OnDemandSeedInfo::Process() {
 					LogToFile(LogLevel::INFO, std::wstring(L"Ignoring file: ") + std::wstring(entry.path().c_str()));
 				}
 
-				DeleteFile(filename.c_str());
+				DeleteFileW(filename.c_str());
 
 				if (m_itemQueue.size() > 20) {
 					Sleep(1);
@@ -334,14 +332,14 @@ void OnDemandSeedInfo::Process() {
 	LogToFile(LogLevel::INFO, L"Stopping deposit listener..");
 }
 
-std::string toString(std::wstring s) {
+std::string toString(const std::wstring s) {
 	using convert_type = std::codecvt_utf8<wchar_t>;
 	std::wstring_convert<convert_type, wchar_t> converter;
 	return converter.to_bytes(s);
 }
 
 
-boost::property_tree::ptree toJson(ParsedSeedRequest obj, std::vector<GAME::GameTextLine>& gameTextLines) {
+boost::property_tree::ptree toJson(ParsedSeedRequest obj, const std::vector<GAME::GameTextLine>& gameTextLines) {
 	boost::property_tree::ptree root;
 	root.put("playerItemId", obj.playerItemId);
 	root.put("buddyItemId", obj.buddyItemId.c_str());
@@ -359,9 +357,9 @@ boost::property_tree::ptree toJson(ParsedSeedRequest obj, std::vector<GAME::Game
 	replica.put("relicSeed", obj.itemReplicaInfo.relicSeed);
 	replica.put("enchantmentRecord", obj.itemReplicaInfo.enchantmentRecord);
 	replica.put("enchantmentSeed", obj.itemReplicaInfo.enchantmentSeed);
+	replica.put("ascendant1", obj.itemReplicaInfo.ascendant1);
+	replica.put("ascendant2", obj.itemReplicaInfo.ascendant2);
 	root.add_child("replica", replica);
-	// TODO: ascendant changes here, not critical, not used by IAGD
-
 
 	boost::property_tree::ptree stats;
 	for (auto& it : gameTextLines) {
@@ -382,9 +380,10 @@ boost::property_tree::ptree OnDemandSeedInfo::GetItemInfo(ParsedSeedRequest obj)
 	// Check for access to Game.dll
 	if (GetModuleHandleA("Game.dll")) {
 		GAME::ItemReplicaInfo replica = obj.itemReplicaInfo;
-		GAME::Item* newItem = fnCreateItem(&replica);
+        GAME::GameItemReplicaInfo gameReplica = ConvertToGameReplica(replica);
+		GAME::Item* newItem = fnCreateItem(gameReplica);
 		if (newItem) {
-			std::vector<GAME::GameTextLine> gameTextLines = {};
+			GAME::GameVector<GAME::GameTextLineRaw> gameTextLines = {};
 
 			auto gameEngine = fnGetGameEngine();
 			if (gameEngine == nullptr) {
@@ -421,7 +420,7 @@ boost::property_tree::ptree OnDemandSeedInfo::GetItemInfo(ParsedSeedRequest obj)
 
 			LogToFile(LogLevel::INFO, L"Generating json..");
 
-			return toJson(obj, gameTextLines);
+			return toJson(obj, ConvertGameTextLines(gameTextLines));
 		}
 		else {
 			std::string str = obj.itemReplicaInfo.baseRecord;
@@ -513,14 +512,14 @@ void* __fastcall OnDemandSeedInfo::Hooked_Engine_Render(void* This) {
 
 					std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
 					std::wofstream stream;
-					stream.open(fullPath);
+					stream.open(fullPath.c_str());
 					stream << json.str().c_str();
 					stream.flush();
 					stream.close();
 					LogToFile(LogLevel::INFO, L"Wrote items stats to " + fullPath);
 
 					// Now that we're done writing we can move it and give it the .json suffix, that way IA isn't trying to read it while we're writing
-					MoveFile(fullPath.c_str(), (fullPath + L".json").c_str());
+					MoveFileW(fullPath.c_str(), (fullPath + L".json").c_str());
 				}
 			}
 			else {

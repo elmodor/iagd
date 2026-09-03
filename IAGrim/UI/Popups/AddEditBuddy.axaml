@@ -1,0 +1,32 @@
+<Window
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:Class="IAGrim.UI.Popups.AddEditBuddy"
+    Width="406"
+    Height="230"
+    MinWidth="406"
+    MaxWidth="406"
+    WindowStartupLocation="CenterOwner"
+    CanResize="False"
+    Title="Add new buddy"
+    Tag="iatag_ui_buddy_intro">
+
+    <Border BorderBrush="{DynamicResource IAGrimWindowBorder}" BorderThickness="1">
+    <Grid Margin="12" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto" ColumnDefinitions="Auto,201,Auto">
+
+        <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,0,0,18" FontSize="20" Tag="iatag_ui_buddy_intro" Text="Add new buddy" />
+
+        <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,4,0" Tag="iatag_ui_buddy_id" Text="Buddy Id:" />
+        <TextBox x:Name="tbBuddyId" Grid.Row="1" Grid.Column="1" MaxLength="6" VerticalAlignment="Center" />
+        <Button x:Name="lbHelpWhatisBuddyId" Grid.Row="1" Grid.Column="2" Margin="6,0,0,0" VerticalAlignment="Center" Tag="iatag_ui_whatisthis" Content="What is this?" Click="lbHelpWhatisBuddyId_LinkClicked" />
+        <TextBlock x:Name="BuddyIdError" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" IsVisible="False" TextWrapping="Wrap" />
+
+        <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Margin="0,8,4,0" Tag="iatag_ui_buddy_nickname" Text="Buddy Nickname:" />
+        <TextBox x:Name="tbBuddyNickname" Grid.Row="3" Grid.Column="1" Margin="0,8,0,0" VerticalAlignment="Center" />
+        <Button x:Name="lbHelpWhatisBuddyNickname" Grid.Row="3" Grid.Column="2" Margin="6,8,0,0" VerticalAlignment="Center" Tag="iatag_ui_whatisthis" Content="What is this?" Click="lbHelpWhatisBuddyNickname_LinkClicked" />
+        <TextBlock x:Name="BuddyNicknameError" Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2" IsVisible="False" TextWrapping="Wrap" />
+
+        <Button x:Name="buttonAdd" Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3" Height="35" Tag="iatag_ui_buddy_save" Content="Save" Click="buttonAdd_Click" />
+    </Grid>
+    </Border>
+</Window>

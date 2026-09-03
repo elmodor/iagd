@@ -1,0 +1,86 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:Class="IAGrim.UI.Tabs.SettingsWindow">
+
+    <Grid Margin="14" ColumnDefinitions="268,20,268,20,*" RowDefinitions="Auto,20,*">
+
+        <GroupBox Grid.Column="0" Grid.Row="0" Header="Actions" Tag="iatag_ui_actions_title" HorizontalAlignment="Stretch" VerticalAlignment="Top">
+            <StackPanel Margin="8" Spacing="10">
+                <Button Name="buttonViewLogs" Content="View Logs" Tag="iatag_ui_viewlogs" Click="buttonViewLogs_Click"/>
+                <Button Name="buttonViewBackups" Content="View Backups" Tag="iatag_ui_viewbackups" Click="buttonViewBackups_Click"/>
+                <Button Name="buttonLanguageSelect" Content="Language Select" Tag="iatag_ui_language_select" Click="buttonLanguageSelect_Click"/>
+                <Button Name="buttonImportExport" Content="Import/Export" Tag="iatag_ui_importexport" Click="buttonImportExport_Click"/>
+                <Button Name="buttonAdvancedSettings" Content="Reconfigure Tabs" Tag="iatag_ui_advancedsettings" Click="buttonAdvancedSettings_Click"/>
+                <Button Name="buttonResetSettings" Content="Reset settings" Tag="iatag_ui_resetsettings" Click="buttonResetSettings_Click"/>
+            </StackPanel>
+        </GroupBox>
+
+        <GroupBox Grid.Column="2" Grid.Row="0" Header="Donate" Tag="iatag_ui_donate_title" HorizontalAlignment="Stretch" VerticalAlignment="Top">
+            <StackPanel Margin="16" Spacing="10">
+                <Button Name="buttonDonate" Tag="iatag_ui_donate_title" Content="Donate" Click="buttonDonate_Click"/>
+                <Button Name="buttonPatreon" Content="Patreon" Click="buttonPatreon_Click"/>
+            </StackPanel>
+        </GroupBox>
+
+        <GroupBox Grid.Column="4" Grid.Row="0" Grid.RowSpan="3" Header="Settings" Tag="iatag_ui_settings_title" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="8" Spacing="8">
+                    <CheckBox Name="cbHideSkills" Content="Hide Skills" Tag="iatag_ui_hideskills" IsCheckedChanged="cbDisplaySkills_CheckedChanged"/>
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <CheckBox Name="cbDualComputer" Content="Using IA on multiple PCs" Tag="iatag_ui_dualcomputer" IsCheckedChanged="cbDualComputer_CheckedChanged"/>
+                        <Button Content="?" Tag="iatag_ui_questionmark" Click="helpWhatIsUsingMultiplePc_LinkClicked" Padding="4,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <CheckBox Name="cbMinimizeToTray" Tag="iatag_ui_minimizetotray" Content="Minimize to Tray"/>
+                    <CheckBox Name="cbStartMinimized" Content="Start minimized" Tag="iatag_ui_startminimized" IsCheckedChanged="cbStartMinimized_CheckedChanged"/>
+                    <CheckBox Name="cbDarkMode" Content="Dark mode" Tag="iatag_ui_darkmode" IsCheckedChanged="cbDarkMode_CheckedChanged"/>
+                    <CheckBox Name="cbAutoDismiss" Content="Auto dismiss notifications" Tag="iatag_ui_autodismiss" IsCheckedChanged="cbAutoDismiss_CheckedChanged"/>
+                    <CheckBox Name="cbTransferAnyMod" Content="Transfer to any mod" Tag="iatag_ui_transferanymod" IsCheckedChanged="cbTransferAnyMod_CheckedChanged"/>
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <CheckBox Name="cbDelaySearch" Tag="iatag_ui_searchdelay" Content="Delay when searching" IsCheckedChanged="cbDelaySearch_CheckedChanged"/>
+                        <Button Content="?" Tag="iatag_ui_questionmark" Click="helpWhatIsDelayWhenSearching_LinkClicked" Padding="4,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <CheckBox Name="cbZipBackups" Content="Zip backups" Tag="iatag_ui_zipbackup" IsCheckedChanged="cbZipBackups_CheckedChanged"/>
+                        <Button Name="lbDefineBackupLocation" Content="Define" Tag="iatag_ui_zipbackup_define" Click="lbDefineBackupLocation_Click" HorizontalAlignment="Left"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <CheckBox Name="cbUseDllHookFiles" Content="Use Dll Hooks" IsCheckedChanged="cbUseDllHookFiles_CheckedChanged"/> <!-- TODO tag -->
+                        <Button Name="lbDeleteDllHookFiles" Content="Delete Dll Hooks" Click="lbDeleteDllHookFiles_Click" HorizontalAlignment="Left"/> <!-- TODO tag -->
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </GroupBox>
+
+        <GroupBox Name="pbAutomaticUpdates" Grid.Column="0" Grid.ColumnSpan="3" Grid.Row="2" Header="Automatic Updates" Tag="iatag_ui_update_title" HorizontalAlignment="Stretch" VerticalAlignment="Top">
+            <StackPanel Margin="10" Spacing="8">
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <RadioButton Name="radioRelease" GroupName="Updates" Content="Check for updates weekly" Tag="iatag_ui_checkupdatesweekly" IsCheckedChanged="radioRelease_CheckedChanged"/>
+                    <Button Content="?" Tag="iatag_ui_questionmark" Click="helpWhatIsRegularUpdates_LinkClicked" Padding="4,0" VerticalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <RadioButton Name="radioBeta" GroupName="Updates" Content="Check for updates daily" Tag="iatag_ui_checkupdatesdaily" IsCheckedChanged="radioBeta_CheckedChanged"/>
+                    <Button Content="?" Tag="iatag_ui_questionmark" Click="helpWhatIsExperimentalUpdates_LinkClicked" Padding="4,0" VerticalAlignment="Center"/>
+                </StackPanel>
+                <Button Name="linkCheckForUpdates" Content="Check for updates" Tag="iatag_ui_checkforupdates" HorizontalAlignment="Left" Click="linkCheckForUpdates_Click"/>
+            </StackPanel>
+        </GroupBox>
+
+        <StackPanel Grid.Column="2" Grid.Row="2" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right" VerticalAlignment="Bottom">
+            <Button Name="linkLabel1" Content="Discord / Help" Tag="iatag_ui_help" HorizontalAlignment="Right" VerticalAlignment="Bottom" Padding="0" Background="Transparent" BorderThickness="0" Click="linkLabel1_Click">
+                <Button.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Copy" Click="copyToolStripMenuItem_Click"/>
+                    </ContextMenu>
+                </Button.ContextMenu>
+            </Button>
+            <Button Name="linkSourceCode" Content="Source Code" Tag="iatag_ui_source_code" HorizontalAlignment="Right" VerticalAlignment="Bottom" Padding="0" Background="Transparent" BorderThickness="0" Click="linkSourceCode_Click">
+                <Button.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Copy" Click="copyToolStripMenuItemSourceCode_Click"/>
+                    </ContextMenu>
+                </Button.ContextMenu>
+            </Button>
+        </StackPanel>
+    </Grid>
+</UserControl>

@@ -12,6 +12,8 @@ using log4net;
 using NHibernate;
 using System.Diagnostics;
 using System.Security.Principal;
+using IAGrim.Overwrites.MessageBox;
+using Avalonia.Threading;
 
 namespace IAGrim {
     public class StartupService {
@@ -21,35 +23,24 @@ namespace IAGrim {
             DateTime buildDate = ExceptionReporter.BuildDate;
             Logger.InfoFormat("Running version {0} from {1:dd/MM/yyyy}", ExceptionReporter.VersionString, buildDate);
 
-            FileVersionInfo dllVersion = FileVersionInfo.GetVersionInfo(Path.Combine(Directory.GetCurrentDirectory(), "ItemAssistantHook_x64.dll"));
-
-            Logger.InfoFormat($"DLL version version {dllVersion.FileVersion}");
-            LogOptionalDllVersion("Playtest", "ItemAssistantHook_playtest_x64.dll");
+            // TODO ?
+            // FileVersionInfo dllVersion = FileVersionInfo.GetVersionInfo(Path.Combine(Directory.GetCurrentDirectory(), "ItemAssistantHook_x64.dll"));
+            //
+            // Logger.InfoFormat($"DLL version version {dllVersion.FileVersion}");
+            // LogOptionalDllVersion("Playtest", "ItemAssistantHook_playtest_x64.dll");
 
             // Numeric compare: dllver.txt is written from the DLL's ProductVersion (zero-padded revision) while
             // FileVersion is a numeric win32 resource that can't carry the padding, so the same version can be
             // spelled two ways. A string compare here read a stale DLL as up to date whenever the revision widths
             // differed, which is exactly the "updated while GD was running" case this check exists to catch.
-            var minimumDllVersion = File.ReadAllText("dllver.txt").Trim();
-            if (VersionUtility.IsOlderThan(dllVersion.FileVersion, minimumDllVersion)) {
-                Logger.Error($"The DLL version ({dllVersion.FileVersion}) is older than the required {minimumDllVersion}, did you perhaps run into a conflict while updating and clicked ignore?");
-                Logger.Error("Item Assistant needs to be re-installed without GD running.");
-
-                MessageBox.Show("IAGD install is corrupted.\nReinstall IAGD without GD running.", "Warning",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-
-
-            if (!DependencyChecker.CheckVs2013Installed()) {
-                MessageBox.Show("It appears VS 2013 (x86) redistributable is not installed.\nPlease install it to continue using IA",
-                    "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-
-            if (!DependencyChecker.CheckVs2010Installed()) {
-                MessageBox.Show("It appears VS 2010 (x86) redistributable is not installed.\nPlease install it to continue using IA",
-                    "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-
+            // var minimumDllVersion = File.ReadAllText("dllver.txt").Trim();
+            // if (VersionUtility.IsOlderThan(dllVersion.FileVersion, minimumDllVersion)) {
+            //     Logger.Error($"The DLL version ({dllVersion.FileVersion}) is older than the required {minimumDllVersion}, did you perhaps run into a conflict while updating and clicked ignore?");
+            //     Logger.Error("Item Assistant needs to be re-installed without GD running.");
+            //
+            //     MessageBox.Show("IAGD install is corrupted.\nReinstall IAGD without GD running.", "Warning",
+            //         MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            // }
         }
 
         /// <summary>
@@ -89,7 +80,7 @@ namespace IAGrim {
 
                 Logger.Info("Transfer to any mod is " + (settings.GetPersistent().TransferAnyMod ? "enabled" : "disabled"));
                 Logger.Info("Update check frequency is " + (settings.GetPersistent().CheckUpdatesDaily ? "daily" : "weekly"));
-                Logger.Info((new WindowsPrincipal(WindowsIdentity.GetCurrent())).IsInRole(WindowsBuiltInRole.Administrator) ? "Running as administrator" : "Not running with low privileges");
+                // Logger.Info((new WindowsPrincipal(WindowsIdentity.GetCurrent())).IsInRole(WindowsBuiltInRole.Administrator) ? "Running as administrator" : "Not running with low privileges");
 
                 Logger.Info("There are items stored for the following mods:");
 
@@ -155,6 +146,7 @@ namespace IAGrim {
         public static void ResetWindowSettings(SettingsService settings) {
             Logger.Info("Safe mode: resetting window position, start minimized and minimize to tray.");
 
+            // TODO
             settings.GetLocal().WindowPositionSettings = null;
             settings.GetLocal().StartMinimized = false;
             settings.GetPersistent().MinimizeToTray = false;
@@ -176,7 +168,11 @@ namespace IAGrim {
                 return;
             }
 
-            Process.Start(new ProcessStartInfo { FileName = Application.ExecutablePath, UseShellExecute = true });
+            var processPath = Environment.ProcessPath;
+            if (!string.IsNullOrEmpty(processPath))
+            {
+                Process.Start(new ProcessStartInfo{FileName = processPath, UseShellExecute = true});
+            }
             LogManager.Shutdown();
             Environment.Exit(0);
         }
@@ -353,6 +349,29 @@ namespace IAGrim {
             }
         }
 
+
+        public static void PerformGrimWineUserProfilePathCheck(GrimDawnDetector grimDawnDetector, SettingsService settings) {
+            try {
+                if (!GlobalPaths.HasGrimDawnWineUserProfilePath) {
+                    var wineUserProfilePath = settings.GetLocal().GrimDawnWineUserProfilePath;
+                    if (!string.IsNullOrWhiteSpace(wineUserProfilePath)) {
+                        GlobalPaths.GrimDawnWineUserProfilePath = wineUserProfilePath;
+                    }
+                    else {
+                        var userPrefix = grimDawnDetector.GetGrimUserPrefix();
+                        if (!string.IsNullOrEmpty(userPrefix) && Directory.Exists(userPrefix)) {
+                            settings.GetLocal().GrimDawnWineUserProfilePath = userPrefix;
+                            GlobalPaths.GrimDawnWineUserProfilePath = userPrefix;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) {
+                Logger.Warn("Error checking for grim dawn wine user profile path", ex);
+            }
+        }
+
+
         /// <summary>
         /// Mirrors the "Load database" button: a clean slate, a full parse, then a player item stat refresh.
         /// </summary>
@@ -363,6 +382,12 @@ namespace IAGrim {
             SettingsService settings,
             string gdPath
         ) {
+            // Only auto parse when grimDawn has already been parsed. Else let the user do the first one
+            if (!settings.GetLocal().IsGrimDawnParsed) {
+                Logger.Warn($"Skipping auto parse because database was never parsed. First startup?.");
+                return;
+            }
+
             var modPath = settings.GetLocal().CurrentGrimdawnMod;
 
             if (!string.IsNullOrEmpty(modPath) && !Directory.Exists(modPath)) {
@@ -374,9 +399,11 @@ namespace IAGrim {
             parsingService.Update(gdPath, modPath);
             parsingService.Execute();
 
-            using (var updatingPlayerItemsScreen = new UpdatingPlayerItemsScreen(playerItemDao)) {
-                updatingPlayerItemsScreen.ShowDialog();
-            }
+            var updatingPlayerItemsScreen = new UpdatingPlayerItemsScreen(playerItemDao);
+            var frame = new DispatcherFrame();
+            updatingPlayerItemsScreen.Closed += (_, _) => {frame.Continue = false;};
+            updatingPlayerItemsScreen.Show();
+            Dispatcher.UIThread.PushFrame(frame);
 
             settings.GetLocal().CurrentGrimdawnLocation = gdPath;
             settings.GetLocal().GrimDawnLocationLastModified = ParsingService.GetHighestTimestamp(gdPath);
@@ -393,7 +420,7 @@ namespace IAGrim {
             ArzParser.QueueIconExtraction(gdPath, modPath);
         }
 
-        public void PerformIconCheck(GrimDawnDetector grimDawnDetector, SettingsService settings) {
+        public static void PerformIconCheck(GrimDawnDetector grimDawnDetector, SettingsService settings) {
             try {
                 // Load the GD database (or mod, if any)
                 string? gdPath = settings.GetLocal().CurrentGrimdawnLocation;

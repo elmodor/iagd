@@ -18,7 +18,8 @@ interface Props {
  */
 class ReplicaStatContainer extends PureComponent<Props, object> {
   isSkillBooster(row: IReplicaRow) {
-    if (row.type !== 18 && row.type !== 79)
+  if (row.type !== 18 && row.type !== 19 &&
+      row.type !== 79 && row.type !== 81)
       return false;
 
     // +1...+5, most likely a skill. A bit naive. No idea how it'll work with russian/japanese/etc..

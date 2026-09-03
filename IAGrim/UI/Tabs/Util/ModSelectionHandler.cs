@@ -1,4 +1,5 @@
-﻿using IAGrim.Database.Interfaces;
+﻿using Avalonia.Controls;
+using IAGrim.Database.Interfaces;
 using IAGrim.Utilities;
 using IAGrim.Utilities.HelperClasses;
 using log4net;
@@ -16,14 +17,15 @@ namespace IAGrim.UI.Tabs.Util {
         private readonly IPlayerItemDao _playerItemDao;
         private string? _lastMod;
         private bool _lastHardcoreSetting;
+        private List<GDTransferFile> _items = new List<GDTransferFile>();
 
         public GDTransferFile? SelectedMod { private set; get; }
 
         public ModSelectionHandler(ComboBox cbModFilter, IPlayerItemDao playerItemDao, Action updateView,
             Action<string> setStatus, SettingsService settings) {
             _cbModFilter = cbModFilter;
-            _cbModFilter.DropDown += modFilter_DropDown;
-            _cbModFilter.SelectedIndexChanged += cbModFilter_SelectedIndexChanged;
+            _cbModFilter.DropDownOpened += modFilter_DropDown;
+            _cbModFilter.SelectionChanged += cbModFilter_SelectedIndexChanged;
             _updateView = updateView;
             _playerItemDao = playerItemDao;
             _setStatus = setStatus;
@@ -36,15 +38,15 @@ namespace IAGrim.UI.Tabs.Util {
             Dispose();
         }
 
-        private void cbModFilter_SelectedIndexChanged(object? sender, EventArgs e) {
+        private void cbModFilter_SelectedIndexChanged(object? sender, SelectionChangedEventArgs e) {
             SelectedMod = _cbModFilter!.SelectedItem as GDTransferFile;
             _updateView();
             _settings.GetLocal().LastSelectedMod = SelectedMod;
         }
 
         public void SetDefaultModIfAvailable() {
-            if (_cbModFilter?.Items.Count > 0) {
-                _cbModFilter.SelectedItem = _cbModFilter.Items[0];
+            if (_items.Count > 0) {
+                _cbModFilter!.SelectedItem = _items[0];
             }
         }
 
@@ -52,8 +54,8 @@ namespace IAGrim.UI.Tabs.Util {
             if (mod != _lastMod || isHardcore != _lastHardcoreSetting) {
                 var options = GetAvailableModSelection();
 
-                _cbModFilter!.Items.Clear();
-                _cbModFilter.Items.AddRange(options);
+                _items = options.ToList();
+                _cbModFilter!.ItemsSource = _items;
 
                 var query = options.Where(m => m.Mod?.Equals(mod) == true && m.IsHardcore == isHardcore);
 
@@ -67,10 +69,9 @@ namespace IAGrim.UI.Tabs.Util {
         }
 
         public void ConfigureModFilter() {
-            _cbModFilter!.DropDown += modFilter_DropDown;
             modFilter_DropDown(null, EventArgs.Empty);
 
-            if (_cbModFilter.Items.Count == 0) {
+            if (_items.Count == 0) {
                 if (_playerItemDao.GetNumItems() == 0) {
                     _setStatus(RuntimeSettings.Language!.GetTag("iatag_no_items_stored"));
 
@@ -84,11 +85,11 @@ namespace IAGrim.UI.Tabs.Util {
                 var lastSelectedMod = _settings.GetLocal().LastSelectedMod;
 
                 if (lastSelectedMod != null) {
-                    _cbModFilter.SelectedIndex = _cbModFilter.Items.IndexOf(lastSelectedMod);
+                    _cbModFilter!.SelectedIndex = _items.IndexOf(lastSelectedMod);
                 }
 
-                if (_cbModFilter.SelectedIndex == -1) {
-                    foreach (var elem in _cbModFilter.Items) {
+                if (_cbModFilter!.SelectedIndex == -1) {
+                    foreach (var elem in _items) {
                         if (elem is IComboBoxItemToggle item && item.Enabled) {
                             _cbModFilter.SelectedItem = item;
                             break;
@@ -131,9 +132,12 @@ namespace IAGrim.UI.Tabs.Util {
 
         public void Dispose() {
             if (_cbModFilter != null) {
-                _cbModFilter.DropDown -= modFilter_DropDown;
+                _cbModFilter.DropDownOpened -= modFilter_DropDown;
+                _cbModFilter.SelectionChanged -= cbModFilter_SelectedIndexChanged;
                 _cbModFilter = null;
             }
+
+            GC.SuppressFinalize(this);
         }
 
         public void UpdateModSelection(string mod) {
@@ -152,9 +156,9 @@ namespace IAGrim.UI.Tabs.Util {
         private void modFilter_DropDown(object? sender, EventArgs e) {
             var entries = GetAvailableModSelection();
 
-            if (entries.Length != _cbModFilter!.Items.Count) {
-                _cbModFilter.Items.Clear();
-                _cbModFilter.Items.AddRange(entries.ToArray<object>());
+            if (entries.Length != _items.Count) {
+                _items = entries.ToList();
+                _cbModFilter!.ItemsSource = _items;
             }
         }
     }

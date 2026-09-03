@@ -28,7 +28,6 @@ public:
 	void Stop();
 
 	void EnableHook() override;
-	void DisableHook() override;
 
 protected:
 	// Pipe&thread stuff
@@ -45,7 +44,7 @@ protected:
 
 	// Game interaction
 	boost::property_tree::ptree GetItemInfo(ParsedSeedRequest obj);
-	typedef void(__fastcall* pItemEquipmentGetUIDisplayText)(GAME::ItemEquipment*, GAME::Character* myCharacter, std::vector<GAME::GameTextLine>* text, bool includeSetBonusDetails); // If false, we'll get a "click here for more info" text instead.
+	typedef void(__fastcall* pItemEquipmentGetUIDisplayText)(GAME::ItemEquipment*, GAME::Character* myCharacter, GAME::GameVector<GAME::GameTextLineRaw>* text, bool includeSetBonusDetails); // If false, we'll get a "click here for more info" text instead.
 	static pItemEquipmentGetUIDisplayText fnItemEquipmentGetUIDisplayText;
 	static pItemEquipmentGetUIDisplayText fnItemRelicGetUIDisplayText;
 

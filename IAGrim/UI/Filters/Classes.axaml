@@ -1,0 +1,23 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theme="using:IAGrim.Theme"
+             x:Class="IAGrim.UI.Filters.Classes">
+
+    <Border Padding="4">
+        <StackPanel Spacing="2">
+            <TextBlock Text="Classes" Tag="iatag_ui_classes" FontWeight="Bold" Margin="4,4,4,8"/>
+            <StackPanel x:Name="classesPanelBox" Spacing="2">
+                <theme:FirefoxCheckBox x:Name="cbSoldier" Tag="class01" Content="Soldier"/>
+                <theme:FirefoxCheckBox x:Name="cbDemolitionist" Tag="class02" Content="Demolitionist"/>
+                <theme:FirefoxCheckBox x:Name="cbOccultist" Tag="class03" Content="Occultist"/>
+                <theme:FirefoxCheckBox x:Name="cbNightblade" Tag="class04" Content="Nightblade"/>
+                <theme:FirefoxCheckBox x:Name="cbArcanist" Tag="class05" Content="Arcanist"/>
+                <theme:FirefoxCheckBox x:Name="cbShaman" Tag="class06" Content="Shaman"/>
+                <theme:FirefoxCheckBox x:Name="cbInquisitor" Tag="class07" Content="Inquisitor"/>
+                <theme:FirefoxCheckBox x:Name="cbNecromancer" Tag="class08" Content="Necromancer"/>
+                <theme:FirefoxCheckBox x:Name="cbOathkeeper" Tag="class09" Content="Oathkeeper"/>
+                <theme:FirefoxCheckBox x:Name="cbBerserker" Tag="class10" Content="Berserker"/>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

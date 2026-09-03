@@ -12,7 +12,7 @@ int SettingsReader::GetStashTabToLootFrom() {
 	boost::property_tree::wptree loadPtreeRoot;
 
 	const auto settingsJson = GetIagdFolder() + L"settings.json";
-	std::wifstream json(settingsJson);
+	std::wifstream json(settingsJson.c_str());
 
 	boost::property_tree::read_json(json, loadPtreeRoot);
 	auto child = loadPtreeRoot.get_child_optional(L"local.stashToLootFrom");
@@ -40,7 +40,7 @@ int SettingsReader::GetStashTabToDepositTo() {
 	boost::property_tree::wptree loadPtreeRoot;
 
 	const auto settingsJson = GetIagdFolder() + L"settings.json";
-	std::wifstream json(settingsJson);
+	std::wifstream json(settingsJson.c_str());
 
 	boost::property_tree::read_json(json, loadPtreeRoot);
 	auto child = loadPtreeRoot.get_child_optional(L"local.stashToDepositTo");
@@ -71,7 +71,7 @@ bool SettingsReader::GetIsGrimDawnParsed() {
 	boost::property_tree::wptree loadPtreeRoot;
 
 	const auto settingsJson = GetIagdFolder() + L"settings.json";
-	std::wifstream json(settingsJson);
+	std::wifstream json(settingsJson.c_str());
 
 
 	boost::property_tree::read_json(json, loadPtreeRoot);
@@ -92,7 +92,7 @@ bool SettingsReader::GetIsRunningInWine() {
 	boost::property_tree::wptree loadPtreeRoot;
 
 	const auto settingsJson = GetIagdFolder() + L"settings.json";
-	std::wifstream json(settingsJson);
+	std::wifstream json(settingsJson.c_str());
 
 	boost::property_tree::read_json(json, loadPtreeRoot);
 	auto child = loadPtreeRoot.get_child_optional(L"persistent.isRunningInWine");

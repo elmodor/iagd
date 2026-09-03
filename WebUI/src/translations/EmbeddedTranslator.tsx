@@ -54,6 +54,17 @@ class EmbeddedTranslator {
   static isInitialized = false;
   static translation = {} as { [index: string]: string };
 
+  static async initialize(): Promise<void> {
+    if (EmbeddedTranslator.isInitialized) {
+      return;
+    }
+    if (isEmbedded) {
+      console.debug("Fetching translation strings");
+      EmbeddedTranslator.translation = await getTranslationStrings();
+    }
+    EmbeddedTranslator.isInitialized = true;
+  }
+
   public translate(id: string): string {
     // Fetch data from host
     if (isEmbedded && !EmbeddedTranslator.isInitialized && Object.getOwnPropertyNames(EmbeddedTranslator.translation).length === 0) {
@@ -75,6 +86,10 @@ class EmbeddedTranslator {
 
 
 const t = new EmbeddedTranslator();
+
+export async function initializeTranslations(): Promise<void> {
+  await EmbeddedTranslator.initialize();
+}
 
 function translate(id: string, arg1?: string, arg2?: string, arg3?: string): string {
   let translation = t.translate(id);

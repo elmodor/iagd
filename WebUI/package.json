@@ -7,7 +7,8 @@
     "build": "vite build",
     "serve": "vite preview --port 3000",
     "dev": "vite --port 3000",
-    "lint": "eslint 'src/**/*.{js,jsx,ts,tsx}'"
+    "lint": "eslint 'src/**/*.{js,jsx,ts,tsx}'",
+    "test": "playwright test"
   },
   "dependencies": {
     "lucide-preact": "^0.469.0",
@@ -16,6 +17,7 @@
     "uuid": "^11.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@preact/preset-vite": "^2.9.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",

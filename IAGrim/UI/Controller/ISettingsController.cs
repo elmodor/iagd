@@ -11,18 +11,9 @@ namespace IAGrim.UI.Controller {
 
         void LoadDefaults();
 
-        void BindCheckbox(FirefoxCheckBox control);
-
-        void BindCheckbox(System.Windows.Forms.Control control, string property);
-
-        void BindText(System.Windows.Forms.Control control);
-
-        void BindText(System.Windows.Forms.Control control, string property);
-
         void DonateNow();
 
         void OpenDataFolder();
-
 
         void OpenLogFolder();
     }

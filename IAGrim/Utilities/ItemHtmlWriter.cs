@@ -159,7 +159,7 @@ namespace IAGrim.Utilities {
         /// </summary>
         public static void CopyMissingFiles() {
             Logger.Debug("Copying missing files / etc to IA storage folder");
-            string appResFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "resources");
+            string appResFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources");
 
             foreach (string dirPath in Directory.GetDirectories(appResFolder, "*", SearchOption.AllDirectories)) {
                 Directory.CreateDirectory(dirPath.Replace(appResFolder, GlobalPaths.StorageFolder));

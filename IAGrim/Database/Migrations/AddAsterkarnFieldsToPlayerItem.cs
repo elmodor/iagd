@@ -1,6 +1,5 @@
 ﻿using IAGrim.Database.DAO.Table;
 using NHibernate;
-using static System.ComponentModel.Design.ObjectSelectorEditor;
 
 namespace IAGrim.Database.Migrations {
     class AddAsterkarnFieldsToPlayerItem : IDatabaseMigration {

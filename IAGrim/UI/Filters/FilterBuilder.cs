@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using IAGrim.Services.ItemStats;
+using IAGrim.Theme;
 
 namespace IAGrim.UI.Filters {
 

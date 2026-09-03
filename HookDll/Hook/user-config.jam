@@ -1,0 +1,4 @@
+using gcc : 1 : x86_64-w64-mingw32-g++ :
+    <rc>x86_64-w64-mingw32-windres
+    <as>x86_64-w64-mingw32-as
+;

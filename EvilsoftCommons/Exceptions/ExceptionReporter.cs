@@ -42,7 +42,8 @@ namespace EvilsoftCommons.Exceptions {
         public static void ReportUsage() {
 #if !DEBUG
             try {
-                string postData = string.Format("version={0}&uuid={1}", Uri.EscapeDataString(VersionString), Uuid);
+                var versionString = VersionString + " (Linux)";
+                string postData = string.Format("version={0}&uuid={1}", Uri.EscapeDataString(versionString), Uuid);
                 HttpWebRequest httpWReq = (HttpWebRequest) WebRequest.Create(UrlStats);
                 Encoding encoding = new UTF8Encoding();
                 byte[] data = encoding.GetBytes(postData);

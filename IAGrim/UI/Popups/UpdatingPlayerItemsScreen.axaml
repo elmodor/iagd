@@ -1,0 +1,28 @@
+<Window
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:Class="IAGrim.UI.UpdatingPlayerItemsScreen"
+    Width="486"
+    Height="120"
+    MinWidth="486"
+    MinHeight="120"
+    MaxWidth="486"
+    MaxHeight="120"
+    CanResize="False"
+    ShowInTaskbar="False"
+    WindowStartupLocation="CenterOwner"
+    Tag="iatag_ui_updatingstats_title"
+    Title="Updating stats for owned items..">
+
+    <Border BorderBrush="{DynamicResource IAGrimWindowBorder}" BorderThickness="1">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" FontSize="20" FontWeight="SemiBold" Foreground="#4C5864" Text="Updating stats for your items..." Tag="iatag_ui_updatingstats" Margin="0,0,0,18"/>
+        <ProgressBar x:Name="progressBar2" Grid.Row="1" Minimum="0" Maximum="100" Height="23"/>
+    </Grid>
+    </Border>
+</Window>

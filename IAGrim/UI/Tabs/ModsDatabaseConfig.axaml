@@ -1,0 +1,72 @@
+<UserControl
+    x:Class="IAGrim.UI.ModsDatabaseConfig"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:model="using:IAGrim.UI.Model"
+    HorizontalAlignment="Stretch"
+    VerticalAlignment="Stretch">
+
+    <Border Margin="14" Padding="10" BorderThickness="1" CornerRadius="4">
+        <Grid RowDefinitions="Auto,Auto,*,Auto">
+            <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                <TextBlock Text="Grim Dawn Database" Tag="iatag_ui_mods_header" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <Button x:Name="helpFindGrimdawnInstall" Grid.Column="1" Content="How can I find the Grim Dawn install?" Tag="iatag_ui_howdoifindgrimdawn" IsVisible="False" Click="HelpFindGrimdawnInstall_Click"/>
+            </Grid>
+            <Grid Grid.Row="1" Margin="0,10,0,0" ColumnDefinitions="Auto,*,Auto">
+                <TextBlock Text="Wine user profile" VerticalAlignment="Center" Margin="4,0,10,0"/> <!-- TODO tag -->
+                <TextBox
+                    x:Name="wineUserProfilePath"
+                    Grid.Column="1"
+                    PlaceholderText="e.g. ~/.local/share/Steam/steamapps/compatdata/219990/pfx/drive_c/users/steamuser/"
+                    VerticalContentAlignment="Center"
+                    LostFocus="WineUserProfilePath_LostFocus"
+                    KeyDown="WineUserProfilePath_KeyDown"/>
+                <Button x:Name="buttonConfigureWineUserProfile" Grid.Column="2" Tag="iatag_ui_browse" Content="Browse..." Margin="6,0,0,0" Click="ButtonConfigureWineUserProfile_Click"/>
+            </Grid>
+
+            <Grid Grid.Row="2" Margin="0,10,0,10" ColumnDefinitions="*,10,*">
+                <Grid Grid.Column="0" RowDefinitions="Auto,*">
+                    <Grid ColumnDefinitions="*,2*">
+                        <TextBlock Text="Install" Tag="iatag_ui_mod_database_mods_header" FontWeight="SemiBold" Margin="4"/>
+                        <TextBlock Grid.Column="1" Text="Path" Tag="iatag_ui_mod_path" FontWeight="SemiBold" Margin="4"/>
+                    </Grid>
+                    <ListBox x:Name="listViewInstalls" Grid.Row="1" SelectionChanged="ListViewInstalls_SelectionChanged">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="model:ListViewEntry">
+                                <Grid ColumnDefinitions="*,2*">
+                                    <TextBlock Text="{Binding Name}" Margin="4" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Path}" Margin="4" TextTrimming="CharacterEllipsis"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+
+                    </ListBox>
+                </Grid>
+
+                <Grid Grid.Column="2" RowDefinitions="Auto,*">
+                    <Grid ColumnDefinitions="*,2*">
+                        <TextBlock Text="Mod" Tag="iatag_ui_mod_database_mods_header" FontWeight="SemiBold" Margin="4"/>
+                        <TextBlock Grid.Column="1" Text="Path" Tag="iatag_ui_mod_path" FontWeight="SemiBold" Margin="4"/>
+                    </Grid>
+                    <ListBox x:Name="listViewMods" Grid.Row="1">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="model:ListViewEntry">
+                                <Grid ColumnDefinitions="*,2*">
+                                    <TextBlock Text="{Binding Name}" Margin="4" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Path}" Margin="4" TextTrimming="CharacterEllipsis"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Grid>
+
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Stretch" Spacing="6">
+                <Button x:Name="buttonForceUpdate" Content="Load Database" Tag="iatag_ui_load_database" Click="ButtonForceUpdate_Click"/>
+                <Button x:Name="buttonConfigure" Content="Configure" Tag="iatag_ui_manual_db" Click="ButtonConfigure_Click"/>
+                <Button x:Name="buttonClean" Tag="iatag_ui_clean" Content="Clean Database" Click="ButtonClean_Click"/>
+                <Button x:Name="buttonUpdateItemStats" Content="Clear cache" Tag="iatag_ui_update_item_stats" Click="ButtonUpdateItemStats_Click"/>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

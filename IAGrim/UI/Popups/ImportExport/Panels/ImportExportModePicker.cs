@@ -2,22 +2,23 @@
 using IAGrim.Parsers.Arz;
 using IAGrim.Utilities.HelperClasses;
 using System;
-using System.Windows.Forms;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
 using IAGrim.Parsers.TransferStash;
 using IAGrim.Utilities;
 
 namespace IAGrim.UI.Popups.ImportExport.Panels {
 
-    partial class ImportExportModePicker : Form {
-        private readonly Control.ControlCollection parentContainer;
+    partial class ImportExportModePicker : UserControl {
+        private readonly ContentControl parentContainer;
         private readonly IPlayerItemDao playerItemDao;
         private readonly GDTransferFile[] modFilter;
         private readonly Action onClose;
 
         public ImportExportModePicker(
-            GDTransferFile[] modFilter, 
-            IPlayerItemDao playerItemDao, 
-            Control.ControlCollection parentContainer, 
+            GDTransferFile[] modFilter,
+            IPlayerItemDao playerItemDao,
+            ContentControl parentContainer,
             Action onClose
             ) {
             InitializeComponent();
@@ -27,25 +28,18 @@ namespace IAGrim.UI.Popups.ImportExport.Panels {
             this.onClose = onClose;
         }
 
-        private void buttonImport_Click(object sender, EventArgs e) {
-            var form = new ImportMode(modFilter, playerItemDao) { TopLevel = false };            
-            parentContainer.Add(form);
-            parentContainer.Remove(this);
-            form.Show();
-            this.Close();
+        private void buttonImport_Click(object sender, RoutedEventArgs e) {
+            var form = new ImportMode(modFilter, playerItemDao);
+            parentContainer.Content = form;
         }
 
-        private void buttonExport_Click(object sender, EventArgs e) {
-            var form = new ExportMode(modFilter, playerItemDao, onClose) { TopLevel = false };
-            parentContainer.Add(form);
-            parentContainer.Remove(this);
-            form.Show();
-            this.Close();
+        private void buttonExport_Click(object sender, RoutedEventArgs e) {
+            var form = new ExportMode(modFilter, playerItemDao, onClose);
+            parentContainer.Content = form;
         }
 
-        private void ImportExportModePicker_Load(object sender, EventArgs e) {
-            this.Dock = DockStyle.Fill;
-            LocalizationLoader.ApplyLanguage(Controls, RuntimeSettings.Language!);
+        private void ImportExportModePicker_Loaded(object sender, RoutedEventArgs e) {
+            LocalizationLoader.ApplyLanguage(this, RuntimeSettings.Language!);
         }
     }
 }

@@ -1,29 +1,24 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
+﻿using Avalonia.Controls;
+using Avalonia.Threading;
+using IAGrim.Utilities;
 
 namespace IAGrim.Parsers.GameDataParsing.Model {
-
-    class WinformsProgressBar {
-        private ProgressBar _progressBar;
+    public class AvaloniaProgressBar {
+        private readonly ProgressBar _progressBar;
         public ProgressTracker Tracker { get; } = new ProgressTracker();
 
-        public WinformsProgressBar(ProgressBar progressBar) {
+        public AvaloniaProgressBar(ProgressBar progressBar) {
             _progressBar = progressBar;
-            _progressBar.Maximum = 100;
+            Dispatcher.UIThread.Post(() => {
+                _progressBar.Maximum = 100;
+                _progressBar.Value = Tracker.Progress;
+            });
 
-            Tracker.OnProgressChanged += (_, __) => {
-                if (_progressBar.InvokeRequired) {
-                    Action action = () => _progressBar.Value = Tracker.Progress;
-                    _progressBar.Invoke(action);
-                }
-                else {
-                    Action action = () => _progressBar.Value = Tracker.Progress;
-                    action.Invoke();
-                }
+            Tracker.OnProgressChanged += (_, _) => {
+                int progress = Tracker.Progress;
+                Dispatcher.UIThread.Post(() => {
+                    _progressBar.Value = progress;
+                });
             };
         }
     }

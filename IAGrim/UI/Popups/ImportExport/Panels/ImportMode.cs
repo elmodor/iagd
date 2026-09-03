@@ -11,9 +11,17 @@ using IAGrim.Utilities.HelperClasses;
 using log4net;
 using System.IO.Compression;
 using System.Text;
+using System.Diagnostics;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.Threading;
+using Avalonia.Platform.Storage;
+using IAGrim.Overwrites.MessageBox;
+using IAGrim.Overwrites.LinuxConfig;
 
 namespace IAGrim.UI.Popups.ImportExport.Panels {
-    partial class ImportMode : Form {
+    partial class ImportMode : UserControl {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(ImportMode));
         private readonly GDTransferFile[] _modSelection;
         private readonly IPlayerItemDao _playerItemDao;
@@ -26,68 +34,83 @@ namespace IAGrim.UI.Popups.ImportExport.Panels {
             this._playerItemDao = playerItemDao;
         }
 
-        private void ImportMode_Load(object sender, EventArgs e) {
-            this.Dock = DockStyle.Fill;
-            this.buttonImport.Enabled = false;
-            cbItemSelection.Visible = false;
-            cbItemSelection.Enabled = false;
+        private void ImportMode_Loaded(object sender, RoutedEventArgs e) {
+            this.buttonImport.IsEnabled = false;
+            cbItemSelection.IsVisible = false;
+            cbItemSelection.IsEnabled = false;
 
-            cbItemSelection.Items.AddRange(_modSelection);
-            LocalizationLoader.ApplyLanguage(Controls, RuntimeSettings.Language!);
+            foreach (var item in _modSelection) {
+                cbItemSelection.Items.Add(item);
+            }
 
-            (this.Parent!.Parent as Form)!.FormClosing += Form1_FormClosing;
+            LocalizationLoader.ApplyLanguage(this, RuntimeSettings.Language!);
+
+            var window = TopLevel.GetTopLevel(this) as Window;
+            if (window != null) {
+                window.Closing += Form1_FormClosing;
+            }
         }
-        private void Form1_FormClosing(object? sender, FormClosingEventArgs e) {
+
+        private void Form1_FormClosing(object? sender, WindowClosingEventArgs e) {
             e.Cancel = isLocked;
         }
 
-        private void radioIAStash_CheckedChanged(object sender, EventArgs e) {
-            cbItemSelection.Visible = !(sender as Control)!.Enabled;
+        private void radioIAStash_CheckedChanged(object? sender, AvaloniaPropertyChangedEventArgs e) {
+            if (e.Property == RadioButton.IsCheckedProperty && radioIAStash.IsChecked == true) {
+                cbItemSelection.IsVisible = false;
+            }
         }
 
-        private void radioGDStash_CheckedChanged(object sender, EventArgs e) {
-            cbItemSelection.Visible = (sender as Control)!.Enabled;
+        private void radioGDStash_CheckedChanged(object? sender, AvaloniaPropertyChangedEventArgs e) {
+            if (e.Property == RadioButton.IsCheckedProperty && radioGDStash.IsChecked == true) {
+                cbItemSelection.IsVisible = true;
+            }
         }
 
-        private void radioGameStash_CheckedChanged(object sender, EventArgs e) {
-            cbItemSelection.Visible = !(sender as Control)!.Enabled;
-        }
+        private async void buttonBrowse_Click(object sender, RoutedEventArgs e) {
+            if (buttonBrowse.IsEnabled) {
+                var topLevel = TopLevel.GetTopLevel(this);
+                if (topLevel == null)
+                    return;
 
-        private void buttonBrowse_Click(object sender, EventArgs e) {
-            if (buttonBrowse.Enabled) {
-                using (OpenFileDialog diag = new OpenFileDialog {
-                    CheckFileExists = true,
-                    CheckPathExists = true,
-                    InitialDirectory = Path.Combine(GlobalPaths.SavePath, "Save"),
-                    Multiselect = false,
-                    Title = RuntimeSettings.Language!.GetTag("iatag_ui_importexport_selectfile")
-                }) {
+                var options = new FilePickerOpenOptions {
+                    AllowMultiple = false,
+                    Title = RuntimeSettings.Language!.GetTag("iatag_ui_importexport_selectfile"),
+                    SuggestedStartLocation = await topLevel.StorageProvider.TryGetFolderFromPathAsync(LinuxConfig.DataDirectory)
+                };
 
-                    if (radioGDStash.Checked) {
-                        diag.DefaultExt = "gds";
-                        diag.Filter = "GD Stash exports (*.gds)|*.gds";
+                if (radioGDStash.IsChecked == true) {
+                    options.FileTypeFilter = new[] {
+                        new FilePickerFileType("GD Stash exports (*.gds)") {Patterns = new[] { "*.gds" }}
+                    };
+                }
+                else {
+                    options.FileTypeFilter = new[] {
+                        new FilePickerFileType("IA Stash exports (*.ias)") {Patterns = new[] { "*.ias", "*.zip" }}
+                    };
+                }
+
+                var files = await topLevel.StorageProvider.OpenFilePickerAsync(options);
+
+                if (files.Count > 0) {
+                    var filename = files[0].TryGetLocalPath();
+                    if (filename == null)
+                        return;
+
+                    if (IsValid(filename)) {
+                        radioGDStash.IsEnabled = false;
+                        radioIAStash.IsEnabled = false;
+                        buttonImport.IsEnabled = true;
+                        cbItemSelection.IsEnabled = true;
+                        this._filename = filename;
                     }
                     else {
-                        diag.DefaultExt = "ias";
-                        diag.Filter = "IA Stash exports (*.ias)|*.ias;*.zip";
-                    }
-
-                    if (diag.ShowDialog() == DialogResult.OK) {
-                        if (IsValid(diag.FileName)) {
-                            radioGDStash.Enabled = false;
-                            radioIAStash.Enabled = false;
-                            buttonImport.Enabled = true;
-                            cbItemSelection.Enabled = true;
-                            this._filename = diag.FileName;
-                        }
-                        else {
-                            MessageBox.Show(
-                                RuntimeSettings.Language.GetTag("iatag_ui_importexport_nothinginzip_body"),
-                                RuntimeSettings.Language.GetTag("iatag_ui_importexport_nothinginzip_title"),
-                                MessageBoxButtons.OK,
-                                MessageBoxIcon.Asterisk
-                            );
-                        }
+                        await MessageBox.Show(
+                            RuntimeSettings.Language.GetTag("iatag_ui_importexport_nothinginzip_body"),
+                            RuntimeSettings.Language.GetTag("iatag_ui_importexport_nothinginzip_title"),
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Information
+                        );
                     }
                 }
             }
@@ -121,14 +144,14 @@ namespace IAGrim.UI.Popups.ImportExport.Panels {
             return File.ReadAllBytes(filename);
         }
 
-        private void buttonImport_Click(object sender, EventArgs e) {
-            if (buttonImport.Enabled && _filename != null) {
+        private void buttonImport_Click(object sender, RoutedEventArgs e) {
+            if (buttonImport.IsEnabled && _filename != null) {
                 FileExporter io;
 
-                if (radioIAStash.Checked) {
+                if (radioIAStash.IsChecked == true) {
                     io = new IAFileExporter(_filename);
                 }
-                else{
+                else {
                     GDTransferFile? settings = cbItemSelection.SelectedItem as GDTransferFile;
                     io = new GDFileExporter(_filename, settings?.Mod ?? string.Empty);
                 }
@@ -137,7 +160,8 @@ namespace IAGrim.UI.Popups.ImportExport.Panels {
                 Logger.Debug($"Storing {items.Count} items to db");
                 progressBar1.Maximum = items.Count;
                 progressBar1.Value = 0;
-                buttonImport.Enabled = false;
+                buttonImport.IsEnabled = false;
+
                 Thread t = new Thread(() => {
                     ExceptionReporter.EnableLogUnhandledOnThread();
                     isLocked = true;
@@ -145,28 +169,34 @@ namespace IAGrim.UI.Popups.ImportExport.Panels {
                     var batches = BatchUtil.ToBatches<PlayerItem>(items);
                     foreach (var batch in batches) {
                         _playerItemDao.Import(batch);
-                        Invoke((MethodInvoker)delegate { progressBar1.Value += batch.Count; });
+                        Dispatcher.UIThread.Post(() => progressBar1.Value += batch.Count);
                     }
 
                     isLocked = false;
-                    MessageBox.Show(
-                        RuntimeSettings.Language!.GetTag("iatag_ui_importexport_import_success_body"),
-                        RuntimeSettings.Language.GetTag("iatag_ui_importexport_import_success"),
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Information
-                    );
+
+                    Dispatcher.UIThread.Post(async () => {
+                        var result = await MessageBox.Show(
+                            RuntimeSettings.Language!.GetTag("iatag_ui_importexport_import_success_body"),
+                            RuntimeSettings.Language.GetTag("iatag_ui_importexport_import_success"),
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Information);
+
+                        if (result == MessageBoxResult.OK) {
+                            var processPath = Environment.ProcessPath;
+                            if (!string.IsNullOrEmpty(processPath)) {
+                                Process.Start(new ProcessStartInfo{FileName = processPath, UseShellExecute = true});
+                            }
+                            Environment.Exit(0);
+                        }
+                    });
                 });
 
                 t.Start();
             }
         }
 
-        private void helpRestoreBackup_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e) {
-            new HelpService().ShowHelp(HelpService.HelpType.RestoreBackup); // TODO: Move into UI?
-        }
-
-        private void progressBar1_Click(object sender, EventArgs e) {
-
+        private void helpRestoreBackup_Click(object sender, RoutedEventArgs e) {
+            new HelpService().ShowHelp(IHelpService.HelpType.RestoreBackup); // TODO: Move into UI?
         }
     }
 }

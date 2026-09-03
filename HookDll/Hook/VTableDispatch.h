@@ -10,7 +10,8 @@ namespace VTableDispatch
 	typedef void(__fastcall* pGetUIDisplayText)(
 		void*                             /* this            */,
 		const GAME::Character*            /* myCharacter     */,
-		std::vector<GAME::GameTextLine>*  /* text            */,
+		// std::vector<GAME::GameTextLine>*  /* text            */,
+        GAME::GameVector<GAME::GameTextLineRaw>* ,
 		bool                              /* includeSetBonus */
 		);
 
@@ -57,7 +58,9 @@ namespace VTableDispatch
 		for (const auto& candidate : k_candidates)
 		{
 			// Get the address of the vftable itself
-			void* vftableAddr = ::GetProcAddress(hGame, candidate.vftableExport);
+         void* vftableAddr = reinterpret_cast<void*>(
+             ::GetProcAddress(hGame, candidate.vftableExport)
+         );
 			if (!vftableAddr)
 			{
 				LogToFile(LogLevel::INFO,
@@ -67,7 +70,9 @@ namespace VTableDispatch
 			}
 
 			// Get the address of GetUIDisplayText for this class
-			void* fnAddr = ::GetProcAddress(hGame, candidate.fnExport);
+         void* fnAddr = reinterpret_cast<void*>(
+             ::GetProcAddress(hGame, candidate.fnExport)
+         );
 			if (!fnAddr)
 			{
 				LogToFile(LogLevel::INFO,
@@ -110,7 +115,8 @@ namespace VTableDispatch
 	static void Call(
 		void* item,
 		const GAME::Character* character,
-		std::vector<GAME::GameTextLine>* lines,
+		// std::vector<GAME::GameTextLine>* lines,
+      GAME::GameVector<GAME::GameTextLineRaw>* lines,
 		bool                             includeSetBonus)
 	{
 		if (!item || s_slot < 0 || s_disabled)

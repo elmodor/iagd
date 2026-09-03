@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
-using System.Windows.Forms;
+// using System.Windows.Forms;
 using EvilsoftCommons;
 using EvilsoftCommons.Exceptions;
 using IAGrim.Database;
@@ -14,6 +14,7 @@ using IAGrim.Parsers.GameDataParsing.Service;
 using IAGrim.Services;
 using IAGrim.Utilities;
 using log4net;
+using IAGrim.Overwrites.MessageBox;
 
 namespace IAGrim.Parsers.Arz {
     public class ArzParser {
@@ -78,11 +79,11 @@ namespace IAGrim.Parsers.Arz {
             try {
 
                 Logger.Debug("Icon loading requested");
-                LoadIconsOrWarn(GrimFolderUtility.FindArcFile(grimDawnLocation, "items.arc"));
+                LoadIconsOrWarn(GrimFolderUtility.FindArcFile(grimDawnLocation, "Items.arc"));
                 LoadIconsOrWarn(GrimFolderUtility.FindArcFile(grimDawnLocation, "Level Art.arc"));
 
                 foreach (var path in GrimFolderUtility.GetGrimExpansionFolders(grimDawnLocation)) {
-                    LoadIconsOrWarn(GrimFolderUtility.FindArcFile(path, "items.arc"));
+                    LoadIconsOrWarn(GrimFolderUtility.FindArcFile(path, "Items.arc"));
                     LoadIconsOrWarn(GrimFolderUtility.FindArcFile(path, "Level Art.arc"));
                 }
             }
@@ -98,7 +99,7 @@ namespace IAGrim.Parsers.Arz {
         public static void LoadSelectedModIcons(string modPath) {
             // Runs on a threadpool thread; an escaping exception would take down the process.
             try {
-                var fileNames = Directory.EnumerateFiles(modPath, "*items.arc", SearchOption.AllDirectories).ToList();
+                var fileNames = Directory.EnumerateFiles(modPath, "*Items.arc", SearchOption.AllDirectories).ToList();
 
                 foreach (var fileName in fileNames) {
                     var arcFile = GrimFolderUtility.FindArcFile(modPath, fileName);
@@ -129,10 +130,10 @@ namespace IAGrim.Parsers.Arz {
             }
             catch (ArgumentException ex) {
                 // Ideally we'd like to catch the specific exception, but the available log files don't contain the exception name..
-                Logger.Error(ex.Message, ex);
+                Logger.Error("Unable to parse icons, ARZ file is corrupted. If you are using Steam, please verify the install integrity.", ex);
                 MessageBox.Show(
                     "Unable to parse icons, ARZ file is corrupted.\nIf you are using steam, please verify the install integrity.",
-                    "Corrupted GD installation", MessageBoxButtons.OK);
+                    "Corrupted GD installation", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             catch (IOException ex) {
                 LogFileInUse(arcItemsFile, ex);
@@ -144,16 +145,7 @@ namespace IAGrim.Parsers.Arz {
         /// sharing violations distinguishable from byte-range locks in user-submitted logs.
         /// </summary>
         internal static void LogFileInUse(string file, IOException ex) {
-            Logger.Error($"Unable to read {file} (HResult 0x{ex.HResult:X8}): {ex.Message}", ex);
-
-            try {
-                foreach (var process in DebugLockedFileUtil.WhoIsLocking(file)) {
-                    Logger.Error($"The process \"{process.ProcessName}\" (pid {process.Id}) is holding {file}");
-                }
-            }
-            catch (Exception lockEx) {
-                Logger.Warn("Could not determine which process is holding the file: " + lockEx.Message);
-            }
+            Logger.Error($"Unable to read {file} (HResult 0x{ex.HResult:X8}): {ex.Message}. Might be locked by a different process.", ex);
         }
 
         public static string ExtractClassFromRecord(string record, IEnumerable<DatabaseItem> items) {

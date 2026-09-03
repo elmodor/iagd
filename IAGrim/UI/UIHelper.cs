@@ -3,77 +3,65 @@ using IAGrim.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Windows.Forms;
 
 namespace IAGrim.UI
 {
     class UIHelper {
-
-        public static Action<Form, Panel> AddAndShow = (f, p) => {
-            f.TopLevel = false;
-            p.Controls.Add(f);
-            p.Width = p.Parent!.Width;
-            p.Height = p.Parent.Height;
-            f.Show();
-        };
-
         public static ComboBoxItemQuality[] QualityFilter {
             get {
-                List<ComboBoxItemQuality> comboBoxItemQuality = new List<ComboBoxItemQuality>
-                {
+                var language = RuntimeSettings.Language!;
+
+                return
+                [
                     new ComboBoxItemQuality
                     {
-                        Text = RuntimeSettings.Language!.GetTag("iatag_rarity_any"),
+                        Text = language.GetTag("iatag_rarity_any"),
                         Rarity = null
                     },
                     new ComboBoxItemQuality
                     {
-                        Text = RuntimeSettings.Language.GetTag("iatag_rarity_yellow"),
+                        Text = language.GetTag("iatag_rarity_yellow"),
                         Rarity = "Yellow"
                     },
                     new ComboBoxItemQuality
                     {
-
-                        Text = RuntimeSettings.Language.GetTag("iatag_rarity_green"),
-                        Rarity = "Green",
+                        Text = language.GetTag("iatag_rarity_green"),
+                        Rarity = "Green"
                     },
                     new ComboBoxItemQuality
                     {
-
-                        Text = RuntimeSettings.Language.GetTag("iatag_rarity_green_p1"),
+                        Text = language.GetTag("iatag_rarity_green_p1"),
                         Rarity = "Green",
                         PrefixRarity = 1
                     },
                     new ComboBoxItemQuality
                     {
-
-                        Text = RuntimeSettings.Language.GetTag("iatag_rarity_green_p2"),
+                        Text = language.GetTag("iatag_rarity_green_p2"),
                         Rarity = "Green",
                         PrefixRarity = 2
                     },
                     new ComboBoxItemQuality
                     {
-                        Text = RuntimeSettings.Language.GetTag("iatag_rarity_blue"),
+                        Text = language.GetTag("iatag_rarity_blue"),
                         Rarity = "Blue"
                     },
                     new ComboBoxItemQuality
                     {
-                        Text = RuntimeSettings.Language.GetTag("iatag_rarity_epic"),
+                        Text = language.GetTag("iatag_rarity_epic"),
                         Rarity = "Epic"
                     }
-                };
-                return comboBoxItemQuality.ToArray<ComboBoxItemQuality>();
+                ];
             }
         }
 
         public static ComboBoxItem[] SlotFilter {
             get {
-                var language = RuntimeSettings.Language;
-                List<ComboBoxItem> slotFilter = new List<ComboBoxItem>
+                var language = RuntimeSettings.Language!;
+                var slotFilter = new List<ComboBoxItem>
                 {
                     new ComboBoxItem
                     {
-                        Text = language!.GetTag("iatag_slot_any"),
+                        Text = language.GetTag("iatag_slot_any"),
                         Filter = null
 
                     },
@@ -179,7 +167,7 @@ namespace IAGrim.UI
                     if (item.Filter != null)
                     {
                         otherTable.AddRange(item.Filter);
-                    }  
+                    }
                 }
 
                 slotFilter.Add(new ComboBoxItem

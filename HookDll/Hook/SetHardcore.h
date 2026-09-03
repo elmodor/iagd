@@ -8,7 +8,6 @@ public:
 	SetHardcore();
 	SetHardcore(DataQueue* dataQueue, HANDLE hEvent);
 	void EnableHook() override;
-	void DisableHook() override;
 
 private:
 	typedef void* (__thiscall *OriginalMethodPtr)(void* This, bool isHardcore);

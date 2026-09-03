@@ -1,0 +1,38 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:webview="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.WebView"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:tabs="clr-namespace:IAGrim.UI.Tabs"
+        mc:Ignorable="d" MinWidth="1550" MinHeight="800"
+        x:Class="IAGrim.Linux.MainWindow"
+        Title="IAGrim.Linux"
+        Icon="../gd.png">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <Border Grid.Row="0" Background="#222" Padding="10">
+            <TextBlock Text="Grim Dawn Item Assistant" Foreground="White" FontSize="12"/>
+        </Border>
+
+        <Grid Grid.Row="1" RowDefinitions="Auto,*">
+            <TabStrip x:Name="MainTabStrip">
+                <TabStripItem Tag="iatag_ui_tab_items">Items</TabStripItem>
+                <TabStripItem Tag="iatag_ui_tab_online">Online</TabStripItem>
+                <TabStripItem Tag="iatag_ui_tab_settings">Settings</TabStripItem>
+                <TabStripItem Tag="iatag_ui_tab_mods">Grim Dawn</TabStripItem>
+            </TabStrip>
+            <Grid Grid.Row="1">
+                <ContentControl x:Name="splitSearchWindow" />
+                <ContentControl x:Name="onlineHost" IsVisible="False" />
+                <ContentControl x:Name="settingsWindow" IsVisible="False" />
+                <ContentControl x:Name="modsDatabaseConfig" IsVisible="False" />
+            </Grid>
+        </Grid>
+        <Border Grid.Row="2" Padding="6,3" BorderBrush="{DynamicResource IAGrimWindowBorder}" BorderThickness="0,1,0,0">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock x:Name="statusLabel" Text="GD Item Assistant" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                <TextBlock x:Name="tsVersionNumber" Grid.Column="1" Text="placeholder" VerticalAlignment="Center" HorizontalAlignment="Right"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

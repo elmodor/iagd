@@ -1,0 +1,16 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="IAGrim.Overwrites.MessageBox.MessageBoxWindow"
+        Width="450"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner">
+
+    <Border BorderBrush="{DynamicResource IAGrimWindowBorder}" BorderThickness="1">
+    <Grid Margin="20" ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="20">
+        <TextBlock Name="IconText" Grid.Row="0" Grid.Column="0" FontSize="32" VerticalAlignment="Top" />
+        <TextBlock Name="MessageText" Grid.Row="0" Grid.Column="1" TextWrapping="Wrap" VerticalAlignment="Center" />
+        <StackPanel Name="ButtonPanel" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" />
+    </Grid>
+    </Border>
+</Window>

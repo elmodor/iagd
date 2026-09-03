@@ -1,0 +1,85 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:IAGrim.Theme">
+
+    <Style Selector="local|FirefoxCheckBox">
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Style.Resources>
+            <ResourceDictionary>
+                <ResourceDictionary.ThemeDictionaries>
+                    <ResourceDictionary x:Key="Light">
+                        <Color x:Key="FirefoxCheckBoxBorder">#302D29</Color>
+                        <Color x:Key="FirefoxCheckBoxMark">#2C9CDA</Color>
+                    </ResourceDictionary>
+                    <ResourceDictionary x:Key="Dark">
+                        <Color x:Key="FirefoxCheckBoxBorder">#B0B0B0</Color>
+                        <Color x:Key="FirefoxCheckBoxMark">#66C0EF</Color>
+                    </ResourceDictionary>
+                </ResourceDictionary.ThemeDictionaries>
+            </ResourceDictionary>
+        </Style.Resources>
+
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Grid ColumnDefinitions="24,Auto,Auto" Height="28" Background="Transparent" VerticalAlignment="Center">
+
+                    <Border Grid.Column="0" Width="20" Height="20" CornerRadius="3" BorderThickness="1" BorderBrush="{DynamicResource FirefoxCheckBoxBorder}" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+                        <Grid IsHitTestVisible="False">
+                            <Path Name="PART_CheckMark"
+                                  IsVisible="False"
+                                  IsHitTestVisible="False"
+                                  Width="20"
+                                  Height="20"
+                                  Data="M 4,10 L 8,14 L 16,5"
+                                  Stroke="{DynamicResource FirefoxCheckBoxMark}"
+                                  StrokeThickness="2"
+                                  StrokeLineCap="Round"
+                                  StrokeJoin="Round"
+                                  Stretch="None"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"/>
+
+                            <Path Name="PART_FilterIcon"
+                                  IsVisible="False"
+                                  IsHitTestVisible="False"
+                                  Width="20"
+                                  Height="20"
+                                  Data="M 3,4 L 17,4 L 12,10 L 12,16 L 8,14 L 8,10 Z"
+                                  Fill="{DynamicResource FirefoxCheckBoxMark}"
+                                  Stretch="None"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"/>
+                        </Grid>
+                    </Border>
+
+                    <ContentPresenter Grid.Column="1" Margin="8,0,8,0" VerticalAlignment="Center" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>
+
+                    <Grid Grid.Column="2" ColumnDefinitions="70,80" ColumnSpacing="6" VerticalAlignment="Center">
+                        <ComboBox Name="PART_FilterOperator" Width="70" Height="26" VerticalAlignment="Center" SelectedIndex="1">
+                            <ComboBoxItem Content="&gt;"/>
+                            <ComboBoxItem Content="&gt;="/>
+                            <ComboBoxItem Content="="/>
+                            <ComboBoxItem Content="&lt;="/>
+                            <ComboBoxItem Content="&lt;"/>
+                        </ComboBox>
+                        <TextBox Grid.Column="1" Name="PART_FilterValue" Width="80" Height="26" VerticalAlignment="Center" PlaceholderText="Value"/>
+                    </Grid>
+                </Grid>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+
+    <Style Selector="local|FirefoxCheckBox:checked /template/ Path#PART_CheckMark">
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+
+    <Style Selector="local|FirefoxCheckBox[HasFilter=true] /template/ Path#PART_CheckMark">
+        <Setter Property="IsVisible" Value="False"/>
+    </Style>
+
+    <Style Selector="local|FirefoxCheckBox[HasFilter=true] /template/ Path#PART_FilterIcon">
+        <Setter Property="IsVisible" Value="True"/>
+    </Style>
+
+</Styles>

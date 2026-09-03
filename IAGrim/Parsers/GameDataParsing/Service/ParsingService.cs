@@ -2,8 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Threading;
-using System.Windows.Forms;
+using Avalonia.Threading;
+// using System.Windows.Forms;
 using EvilsoftCommons;
 using EvilsoftCommons.Exceptions;
 using IAGrim.Database.Interfaces;
@@ -11,12 +11,15 @@ using IAGrim.Parsers.GameDataParsing.Model;
 using IAGrim.Parsers.GameDataParsing.UI;
 using IAGrim.Utilities;
 using log4net;
+using IAGrim.Overwrites.MessageBox;
 
 namespace IAGrim.Parsers.GameDataParsing.Service {
     public class ParsingService {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(ParsingService));
         private string _grimdawnLocation;
         private string? _modLocation;
+        private readonly object _parseLock = new object();
+        private bool _isParsing;
 
         private readonly IItemTagDao _itemTagDao;
         private readonly IDatabaseItemDao _databaseItemDao;
@@ -73,28 +76,35 @@ namespace IAGrim.Parsers.GameDataParsing.Service {
         }
 
         public void Execute() {
+            lock (_parseLock) {
+                if (_isParsing) {
+                    Logger.Warn("Database parsing is already in progress, ignoring duplicate request.");
+                    return;
+                }
+                _isParsing = true;
+            }
             var form = new ParsingDatabaseProgressView();
             var parser = new ArzParsingWrapper();
 
-            string arcFileName = $"text_{_languageCode.ToLowerInvariant()}.arc";
+            string arcFileName = $"Text_{_languageCode.ToUpperInvariant()}.arc";
 
             // Always load English first as fallback, then overlay selected language
             List<string> tagfiles = new List<string>();
 
             // English tags first (fallback)
-            string vanillaEnTags = GrimFolderUtility.FindArcFile(_grimdawnLocation, "text_en.arc");
+            string vanillaEnTags = GrimFolderUtility.FindArcFile(_grimdawnLocation, "Text_EN.arc");
             if (!string.IsNullOrEmpty(vanillaEnTags)) {
                 tagfiles.Add(vanillaEnTags);
             }
 
             foreach (string path in GrimFolderUtility.GetGrimExpansionFolders(_grimdawnLocation)) {
-                string expansionEnTags = GrimFolderUtility.FindArcFile(path, "text_en.arc");
+                string expansionEnTags = GrimFolderUtility.FindArcFile(path, "Text_EN.arc");
                 if (!string.IsNullOrEmpty(expansionEnTags)) {
                     tagfiles.Add(expansionEnTags);
                 }
             }
 
-            string modEnTags = string.IsNullOrEmpty(_modLocation) ? "" : GrimFolderUtility.FindArcFile(_modLocation, "text_en.arc");
+            string modEnTags = string.IsNullOrEmpty(_modLocation) ? "" : GrimFolderUtility.FindArcFile(_modLocation, "Text_EN.arc");
             if (!string.IsNullOrEmpty(modEnTags)) {
                 tagfiles.Add(modEnTags);
             }
@@ -138,31 +148,28 @@ namespace IAGrim.Parsers.GameDataParsing.Service {
                 arzFiles.Add(GrimFolderUtility.FindArzFile(_modLocation));
             }
 
+            var frame = new DispatcherFrame();
 
-            // Invoke the background thread & show progress UI
-            Thread t = new Thread(() => {
-                ExceptionReporter.EnableLogUnhandledOnThread();
-
+            Thread t = new Thread(() =>
+            {
                 try {
                     ExecuteParse(parser, form, tagfiles, arzFiles);
                 }
                 catch (IOException ex) {
-                    // Grim Dawn itself does not block us from reading its files, but Steam mid-update (or antivirus) can
                     Logger.Warn($"Unable to read the Grim Dawn game files (HResult 0x{ex.HResult:X8}): {ex.Message}", ex);
-                    ShowGameFilesInUseMessage();
+                    Logger.Warn("The Grim Dawn files may be in use by another program. If Steam is currently updating or verifying Grim Dawn, wait for it to finish and try again.");
+                    Dispatcher.UIThread.Post(ShowGameFilesInUseMessage);
                 }
                 finally {
-                    try {
-                        form.Invoke(() => form.OverrideClose());
-                    }
-                    catch (Exception ex) {
-                        Logger.Warn("Error closing the parsing progress window: " + ex.Message, ex);
+                    Dispatcher.UIThread.Post(() => {form.OverrideClose(); frame.Continue = false;});
+                    lock (_parseLock) {
+                        _isParsing = false;
                     }
                 }
             });
-
             t.Start();
-            form.ShowDialog();
+            form.Show();
+            Dispatcher.UIThread.PushFrame(frame);
 
             OnParseComplete?.Invoke(this, EventArgs.Empty);
         }
@@ -183,24 +190,26 @@ namespace IAGrim.Parsers.GameDataParsing.Service {
             List<string> tagfiles,
             List<string> arzFiles
         ) {
-            parser.LoadTags(tagfiles, new WinformsProgressBar(form.LoadingTags).Tracker);
-            _itemTagDao.Save(parser.Tags, new WinformsProgressBar(form.SavingTags).Tracker);
-            parser.LoadItems(arzFiles, new WinformsProgressBar(form.LoadingItems).Tracker);
-            parser.MapItemNames(new WinformsProgressBar(form.MappingItemNames).Tracker);
-            parser.RenamePetStats(new WinformsProgressBar(form.MappingPetStats).Tracker);
-            _databaseItemDao.Save(parser.Items ?? [], new WinformsProgressBar(form.SavingItems).Tracker);
-            _databaseItemDao.CreateItemIndexes(new WinformsProgressBar(form.IndexingItems).Tracker);
+            parser.LoadTags(tagfiles, new AvaloniaProgressBar(form.LoadingTags).Tracker);
+            _itemTagDao.Save(parser.Tags, new AvaloniaProgressBar(form.SavingTags).Tracker);
+            parser.LoadItems(arzFiles, new AvaloniaProgressBar(form.LoadingItems).Tracker);
+            parser.MapItemNames(new AvaloniaProgressBar(form.MappingItemNames).Tracker);
+            parser.RenamePetStats(new AvaloniaProgressBar(form.MappingPetStats).Tracker);
+            _databaseItemDao.Save(parser.Items ?? [], new AvaloniaProgressBar(form.SavingItems).Tracker);
+            _databaseItemDao.CreateItemIndexes(new AvaloniaProgressBar(form.IndexingItems).Tracker);
 
             // TODO: This depends on the DB item name.. which is in english, not localized
             {
-                var records = parser.GenerateSpecialRecords(new WinformsProgressBar(form.GeneratingSpecialStats).Tracker);
-                _databaseItemStatDao.Save(records, new WinformsProgressBar(form.SavingSpecialStats).Tracker);
+                var records = parser.GenerateSpecialRecords(new AvaloniaProgressBar(form.GeneratingSpecialStats).Tracker);
+                _databaseItemStatDao.Save(records, new AvaloniaProgressBar(form.SavingSpecialStats).Tracker);
             };
 
 
-            parser.ParseComplexItems(_itemSkillDao, new WinformsProgressBar(form.GeneratingSkills).Tracker);
+            parser.ParseComplexItems(_itemSkillDao, new AvaloniaProgressBar(form.GeneratingSkills).Tracker);
             {
-                var tracker = new WinformsProgressBar(form.SkillCorrectnessCheck).Tracker;
+                var progress = new AvaloniaProgressBar(form.SkillCorrectnessCheck);
+                var tracker = progress.Tracker;
+
                 tracker.MaxValue = 1;
                 _itemSkillDao.EnsureCorrectSkillRecords();
                 tracker.MaxProgress();

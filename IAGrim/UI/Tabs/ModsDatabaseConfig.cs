@@ -1,4 +1,10 @@
-﻿using IAGrim.Database.Interfaces;
+﻿using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
+using Avalonia.Threading;
+using Avalonia.Input;
+using IAGrim.Database.Interfaces;
 using IAGrim.Parsers.GameDataParsing.Service;
 using IAGrim.UI.Model;
 using IAGrim.UI.Service;
@@ -6,16 +12,19 @@ using log4net;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Threading;
-using System.Windows.Forms;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Diagnostics;
 using IAGrim.Parsers.Arz;
 using IAGrim.Services;
 using IAGrim.Settings;
 using IAGrim.Utilities;
-using DllInjector;
+// using DllInjector;
+using IAGrim.Overwrites.MessageBox;
+using IAGrim.Overwrites;
 
 namespace IAGrim.UI {
-    public partial class ModsDatabaseConfig : Form {
+    public partial class ModsDatabaseConfig : UserControl {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(ModsDatabaseConfig));
 
         private readonly Action _itemViewUpdateTrigger;
@@ -49,60 +58,58 @@ namespace IAGrim.UI {
             _databaseModSelectionService = new DatabaseModSelectionService();
             _replicaItemDao = replicaItemDao;
             _computedItemStatDao = computedItemStatDao;
+
+            AttachedToVisualTree += ModsDatabaseConfig_AttachedToVisualTree;
         }
 
         private void UpdateListView(IEnumerable<string> paths) {
-            listViewInstalls.BeginUpdate();
-            listViewInstalls.Items.Clear();
+            var installs = _databaseModSelectionService.GetGrimDawnInstalls(paths).ToList();
+            var mods = _databaseModSelectionService.GetInstalledMods(paths).ToList();
 
-            var installs = _databaseModSelectionService.GetGrimDawnInstalls(paths);
-
-            foreach (var grimDawnInstall in installs) {
-                listViewInstalls.Items.Add(grimDawnInstall);
-            }
-
-            listViewInstalls.EndUpdate();
+            listViewInstalls.ItemsSource = installs;
+            listViewMods.ItemsSource = mods;
 
             if (listViewInstalls.Items.Count > 0) {
-                listViewInstalls.Items[0].Selected = true;
+                listViewInstalls.SelectedIndex = 0;
+            }
+
+            if (listViewMods.Items.Count > 0) {
+                listViewMods.SelectedIndex = 0;
             }
 
             // Show help linklabel?
-            helpFindGrimdawnInstall.Visible = listViewInstalls.Items.Count == 0;
+            helpFindGrimdawnInstall.IsVisible = listViewInstalls.Items.Count == 0;
 
-            listViewMods.BeginUpdate();
-            listViewMods.Items.Clear();
-
-            foreach (var grimDawnInstall in _databaseModSelectionService.GetInstalledMods(paths)) {
-                listViewMods.Items.Add(grimDawnInstall);
-            }
-
-            listViewMods.EndUpdate();
-
-            if (listViewMods.Items.Count > 0) {
-                listViewMods.Items[0].Selected = true;
-            }
+            buttonForceUpdate.IsEnabled = listViewInstalls.SelectedItem != null;
         }
 
-        private void ModsDatabaseConfig_Load(object sender, EventArgs e) {
-            Dock = DockStyle.Fill;
+        private void ModsDatabaseConfig_AttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e) {
+            AttachedToVisualTree -= ModsDatabaseConfig_AttachedToVisualTree;
+            ModsDatabaseConfig_Load();
+        }
+
+        private void ModsDatabaseConfig_Load() {
+            var localSettings = _settingsService.GetLocal();
+            wineUserProfilePath.Text = localSettings.GrimDawnWineUserProfilePath;
 
             var paths = _grimDawnDetector.GetGrimLocations();
 
             // Ensure that we store all known paths.
             foreach (var path in paths) {
                 _settingsService.GetLocal().AddGrimDawnLocation(path);
+                if (_settingsService.GetLocal().UseDllHookFiles)
+                    HookFiles.UpdateHookFiles(path);
             }
 
             if (paths.Count == 0) {
-                listViewInstalls.Enabled = false;
-                buttonForceUpdate.Enabled = false;
+                listViewInstalls.IsEnabled = false;
+                buttonForceUpdate.IsEnabled = false;
             }
             else {
                 UpdateListView(paths);
             }
 
-            buttonForceUpdate.Enabled = listViewInstalls.SelectedItems.Count > 0;
+            buttonForceUpdate.IsEnabled = listViewInstalls.SelectedItem != null;
         }
 
         /// <summary>
@@ -129,8 +136,10 @@ namespace IAGrim.UI {
 
             // Update item stats as well
             var updatingPlayerItemsScreen = new UpdatingPlayerItemsScreen(_playerItemDao);
-
-            updatingPlayerItemsScreen.ShowDialog();
+            var owner = TopLevel.GetTopLevel(this) as Window;
+            if (owner != null) {
+                updatingPlayerItemsScreen.ShowDialog(owner);
+            }
             _itemViewUpdateTrigger?.Invoke();
 
             // Icons go last. Extraction is memory hungry, so running it alongside the database
@@ -143,23 +152,23 @@ namespace IAGrim.UI {
             }
         }
 
-        private static ListViewEntry? GetFirst(ListView lv) {
-            foreach (ListViewItem lvi in lv.SelectedItems) {
-                return lvi.Tag as ListViewEntry;
-            }
-
-            return null;
+        private ListViewEntry? GetSelectedInstall() {
+            return listViewInstalls.SelectedItem as ListViewEntry;
         }
 
-        private void buttonForceUpdate_Click(object sender, EventArgs e) {
+        private ListViewEntry? GetSelectedMod() {
+            return listViewMods.SelectedItem as ListViewEntry;
+        }
+
+        private void ButtonForceUpdate_Click(object? sender, RoutedEventArgs e) {
             // Grim Dawn holds its .arc resources open for the whole session, but only with
             // FILE_SHARE_READ -- they remain readable, so there is no need to block parsing here.
             _databaseItemDao.Clean();
 
             var isGdParsed2 = _databaseItemDao.GetRowCount() > 0;
 
-            var mod = GetFirst(listViewMods);
-            var entry = GetFirst(listViewInstalls);
+            var mod = GetSelectedMod();
+            var entry = GetSelectedInstall();
 
             if (entry == null) {
                 Logger.Warn("ForceDatabaseUpdate requested with no install selected, aborting.");
@@ -183,13 +192,16 @@ namespace IAGrim.UI {
             _helpService.SetIsGrimParsed(isGdParsed);
         }
 
-        private void listView1_SelectedIndexChanged(object sender, EventArgs e) {
-            buttonForceUpdate.Enabled = listViewInstalls.SelectedItems.Count > 0;
+        private void ListViewInstalls_SelectionChanged(object? sender, SelectionChangedEventArgs e) {
+            buttonForceUpdate.IsEnabled = listViewInstalls.SelectedItem != null;
         }
 
-        private void buttonUpdateItemStats_Click(object sender, EventArgs e) {
+        private void ButtonUpdateItemStats_Click(object? sender, RoutedEventArgs e) {
             var updatingPlayerItemsScreen = new UpdatingPlayerItemsScreen(_playerItemDao);
-            updatingPlayerItemsScreen.ShowDialog();
+            var owner = TopLevel.GetTopLevel(this) as Window;
+            if (owner != null) {
+                updatingPlayerItemsScreen.ShowDialog(owner);
+            }
 
             _replicaItemDao.DeleteAll();
             _computedItemStatDao.DeleteAll();
@@ -197,13 +209,14 @@ namespace IAGrim.UI {
             _itemViewUpdateTrigger?.Invoke();
         }
 
-        private void helpFindGrimdawnInstall_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e) {
-            _helpService.ShowHelp(HelpService.HelpType.CannotFindGrimdawn);
+        private void HelpFindGrimdawnInstall_Click(object? sender, RoutedEventArgs e) {
+            _helpService.ShowHelp(IHelpService.HelpType.CannotFindGrimdawn);
         }
 
-        private void buttonClean_Click(object sender, EventArgs e) {
+        private void ButtonClean_Click(object? sender, RoutedEventArgs e) {
             _databaseItemDao.Clean();
-            buttonUpdateItemStats_Click(sender, e);
+            ButtonUpdateItemStats_Click(sender, e);
+
             MessageBox.Show(RuntimeSettings.Language!.GetTag("iatag_ui_clean_body"),
                 RuntimeSettings.Language.GetTag("iatag_ui_clean_caption"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 
@@ -212,22 +225,94 @@ namespace IAGrim.UI {
             _helpService.SetIsGrimParsed(isGdParsed);
         }
 
-        private void buttonConfigure_Click(object sender, EventArgs e) {
-            using (FolderBrowserDialog folderBrowserDialog = new FolderBrowserDialog()) {
-                if (folderBrowserDialog.ShowDialog() == DialogResult.OK) {
-                    if (File.Exists(Path.Combine(folderBrowserDialog.SelectedPath, "Grim Dawn.exe"))) {
-                        _settingsService.GetLocal().AddGrimDawnLocation(folderBrowserDialog.SelectedPath);
-                        Logger.Info($"Added {folderBrowserDialog.SelectedPath} to the known Grim Dawn locations");
-                        ModsDatabaseConfig_Load(sender, e);
-                        // TODO: Kill the task that keeps looking for GD.
-                    }
-                    else {
-                        var text = RuntimeSettings.Language!.GetTag("iatag_ui_db_invalidlocation_body");
-                        var title = RuntimeSettings.Language.GetTag("iatag_ui_db_invalidlocation_title");
-                        MessageBox.Show(text, title, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    }
+        private async void ButtonConfigure_Click(object? sender, RoutedEventArgs e) {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel == null) {
+                Logger.Warn("Could not find TopLevel for folder selection.");
+                return;
+            }
+
+            var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions {Title = "Select Grim Dawn installation folder", AllowMultiple = false});
+            if (folders.Count == 0) {
+                return;
+            }
+
+            var selectedPath = folders[0].Path.LocalPath;
+            if (File.Exists(Path.Combine(selectedPath, "Grim Dawn.exe"))) {
+                _settingsService.GetLocal().AddGrimDawnLocation(selectedPath);
+                Logger.Info($"Added {selectedPath} to the known Grim Dawn locations");
+                ModsDatabaseConfig_Load();
+                if (_settingsService.GetLocal().UseDllHookFiles)
+                    HookFiles.UpdateHookFiles(selectedPath);
+                // TODO: Kill the task that keeps looking for GD.
+            }
+            else {
+                var text = RuntimeSettings.Language!.GetTag("iatag_ui_db_invalidlocation_body");
+                var title = RuntimeSettings.Language.GetTag("iatag_ui_db_invalidlocation_title");
+                MessageBox.Show(text, title, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private async void SetWineUserProfilePath(string? path) {
+            if (GlobalPaths.HasGrimDawnWineUserProfilePath) {
+                if (GlobalPaths.GrimDawnWineUserProfilePath == path)
+                    return;
+            }
+            if (!string.IsNullOrWhiteSpace(path)) {
+                try {
+                    GlobalPaths.GrimDawnWineUserProfilePath = path;
+                    _settingsService.GetLocal().GrimDawnWineUserProfilePath = path;
+                    wineUserProfilePath.Text = path;
+                    Logger.Info($"Set grim dawn wine user profile path {path}");
+                    Dispatcher.UIThread.Post(async () => {
+                        var result = await MessageBox.Show(
+                            "Changing the prefix path requires an application restart. Restart now?",
+                            "Application Restart",
+                            MessageBoxButtons.YesNo,
+                            MessageBoxIcon.Information);
+
+                        if (result == MessageBoxResult.Yes) {
+                            var processPath = Environment.ProcessPath;
+                            if (!string.IsNullOrEmpty(processPath)) {
+                                Process.Start(new ProcessStartInfo{FileName = processPath, UseShellExecute = true});
+                            }
+                            Environment.Exit(0);
+                        }
+                    });
+                }
+                catch (ArgumentException ex) {
+                    if (GlobalPaths.HasGrimDawnWineUserProfilePath)
+                        wineUserProfilePath.Text = GlobalPaths.GrimDawnWineUserProfilePath;
+                    await Dispatcher.UIThread.InvokeAsync(() => MessageBox.Show(ex.Message, "Invalid Wine user profile", MessageBoxButtons.OK, MessageBoxIcon.Warning));
                 }
             }
+        }
+
+        private void WineUserProfilePath_LostFocus(object? sender, RoutedEventArgs e) {
+            var path = wineUserProfilePath.Text?.Trim() ?? string.Empty;
+            SetWineUserProfilePath(path);
+        }
+
+        private void WineUserProfilePath_KeyDown(object? sender, KeyEventArgs e) {
+            if (e.Key == Key.Enter) {
+                e.Handled = true;
+                var path = wineUserProfilePath.Text?.Trim() ?? string.Empty;
+                SetWineUserProfilePath(path);
+            }
+        }
+
+        private async void ButtonConfigureWineUserProfile_Click(object? sender, RoutedEventArgs e) {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel == null) {
+                Logger.Warn("Could not find TopLevel for folder selection.");
+                return;
+            }
+            var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions {Title = "Select Grim Dawn Wine user profile folder", AllowMultiple = false});
+            if (folders.Count != 1) {
+                return;
+            }
+            var selectedPath = folders[0].Path.LocalPath;
+            SetWineUserProfilePath(selectedPath);
         }
     }
 }

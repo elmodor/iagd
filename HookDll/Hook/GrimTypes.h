@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <cstdint>
 #include "Exports.h"
 
 
@@ -29,6 +30,80 @@ namespace GAME
 		float b;
 		float a;
 	};
+
+
+   struct GameString
+   {
+       union
+       {
+           char buffer[16];
+           char* ptr;
+       };
+
+       std::uint64_t size;
+       std::uint64_t capacity;
+       const char* c_str() const
+       {
+           return capacity >= 16 ? ptr : buffer;
+       }
+   };
+
+   struct GameWString
+   {
+       union
+       {
+          std::uint16_t buffer[8];
+          std::uint16_t* ptr;
+       };
+       std::uint64_t size;
+       std::uint64_t capacity;
+       const unsigned short* c_str() const
+       {
+           return capacity >= 8 ? ptr : buffer;
+       }
+   };
+   template<typename T>
+   struct GameVector
+   {
+       T* first;
+       T* last;
+       T* capacity;
+       T* begin() const { return first; }
+       T* end() const { return last; }
+       size_t size() const { return last - first; }
+   };
+
+   struct GameItemReplicaInfo
+   {
+       uint32_t id;                  // 0x000
+       GameString baseRecord;    // 0x008
+       GameString prefixRecord;  // 0x028
+       GameString suffixRecord;  // 0x048
+       uint32_t seed;                // 0x068
+
+       GameString modifierRecord;       // 0x070
+       GameString materiaRecord;        // 0x090
+       GameString relicBonus;            // 0x0B0
+       uint32_t relicSeed;                   // 0x0D0
+       GameString enchantmentRecord;     // 0x0D8
+       uint32_t enchantmentLevel;            // 0x0F8
+       uint32_t enchantmentSeed;             // 0x0FC
+       GameString transmuteRecord;       // 0x100
+       GameString ascendant1;             // 0x120
+       GameString ascendant2;             // 0x140
+
+       uint32_t var1;                        // 0x160
+       uint8_t unknown164;                   // 0x164
+       uint8_t padding[3];                   // 0x165
+       double unknown168;                    // 0x168
+       uint32_t owner;                       // 0x170
+       uint32_t unknownDropData;              // 0x174
+       uint32_t stackSize;                    // 0x178
+       uint32_t seedRerolls;                  // 0x17C
+       uint32_t affixRerolls;                 // 0x180
+       uint32_t unknownFoaField1;              // 0x184
+       uint32_t unknownFoaField2;              // 0x188
+   };
 
 	struct ItemReplicaInfo
 	{
@@ -173,6 +248,14 @@ namespace GAME
 	};
 
 	// If this changes, just look up the "GAME::GameTextLine::GameTextLine" export
+   struct GameTextLineRaw
+   {
+       GameTextClass textClass;
+       GameWString text;
+       bool needsProcessing;
+       GraphicsTexture* leadingIcon;
+       float _iconScale;
+   };
 	struct GameTextLine
 	{
 		GameTextClass textClass;
@@ -191,10 +274,10 @@ namespace GAME
 // ?GetItemReplicaInfo@Item@GAME@@UEBAXAEAUItemReplicaInfo@2@@Z
 // void GAME::Item::GetItemReplicaInfo(struct GAME::ItemReplicaInfo &)
 //
-typedef void (__thiscall* ItemGetItemReplicaInfo)(void* This, GAME::ItemReplicaInfo& info);
+typedef void (__thiscall* ItemGetItemReplicaInfo)(void* This, GAME::GameItemReplicaInfo& info);
 
 
-typedef GAME::Item* (__fastcall* pCreateItem)(GAME::ItemReplicaInfo* info);
+typedef GAME::Item* (__fastcall* pCreateItem)(const GAME::GameItemReplicaInfo& info);
 static auto fnCreateItem = pCreateItem(GetProcAddressOrLogToFile(L"game.dll", "?CreateItem@Item@GAME@@SAPEAV12@AEBUItemReplicaInfo@2@@Z"));
 
 typedef GAME::ObjectManager* (__fastcall* pGetObjectManager)();
@@ -211,7 +294,7 @@ typedef GAME::Player* (__fastcall* pGetMainPlayer)(GAME::GameEngine*);
 static auto fnGetMainPlayer = pGetMainPlayer(GetProcAddressOrLogToFile(L"game.dll", "?GetMainPlayer@GameEngine@GAME@@QEBAPEAVPlayer@2@XZ"));
 
 
-typedef void(__fastcall* pGetModNameArg)(GAME::GameInfo* gi, std::wstring* str);
+typedef void(__fastcall* pGetModNameArg)(GAME::GameInfo* gi, GAME::GameWString* str);
 static auto fnGetModNameArg = pGetModNameArg(GetProcAddressOrLogToFile(L"engine.dll", "?GetModName@GameInfo@GAME@@QEAAXAEAV?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@@Z"));
 
 
@@ -228,8 +311,23 @@ static auto fnGetGameInfo = pGetGameInfo(GetProcAddressOrLogToFile(L"engine.dll"
 typedef GAME::GameInfo* (__fastcall* pPlayDropSound)(GAME::Item* ge);
 static auto fnPlayDropSound = pPlayDropSound(GetProcAddressOrLogToFile(L"game.dll", "?PlayDropSound@Item@GAME@@UEAAXXZ"));
 
-typedef GAME::GameInfo* (__fastcall* pShowCinematicText)(GAME::Engine* engine, const std::wstring* header, const std::wstring* content, int CinematicTextType, GAME::Color* color, bool whateverThisIsIfTrueItCrashes);
-static auto fnShowCinematicText = pShowCinematicText(GetProcAddressOrLogToFile(L"engine.dll", "?ShowCinematicText@Engine@GAME@@QEAAXAEBV?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@0W4CinematicTextType@2@AEBVColor@2@_N@Z"));
+using pShowCinematicText =
+    void (__fastcall*)(
+        GAME::Engine* engine,
+        const GAME::GameWString& header,
+        const GAME::GameWString& content,
+        int cinematicTextType,
+        const GAME::Color& color,
+        bool whateverThisIsIfTrueItCrashes
+    );
+
+static auto fnShowCinematicText =
+    pShowCinematicText(
+        GetProcAddressOrLogToFile(
+            L"Engine.dll",
+            "?ShowCinematicText@Engine@GAME@@QEAAXAEBV?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@0W4CinematicTextType@2@AEBVColor@2@_N@Z"
+        )
+    );
 // New: ?ShowCinematicText@Engine@GAME@@QEAAXAEBV?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@0W4CinematicTextType@2@AEBVColor@2@_N@Z
 // Old: ?ShowCinematicText@Engine@GAME@@QEAAXAEBV?$basic_string@GU?$char_traits@G@std@@V?$allocator@G@2@@std@@0W4CinematicTextType@2@AEBVColor@2@@Z
 
@@ -288,3 +386,5 @@ void fnLogWorldStateTransition(GAME::GameEngine* gameEngine, const wchar_t* site
 long long fnMsSinceLastAddItem();
 
 bool fnGetHardcore(GAME::GameInfo* gameInfo, bool skipLog = false);
+
+

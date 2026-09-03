@@ -1,121 +1,187 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using Gameloop.Vdf;
-using log4net;
-using Microsoft.CSharp.RuntimeBinder;
-using Microsoft.Win32;
+﻿using log4net;
+using System.Linq;
 
 namespace IAGrim.Utilities.Detection {
     class SteamDetection {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(SteamDetection));
-        private const string VALVE_32BIT_PATH = @"Software\Valve\Steam";
-        private const string VALVE_64BIT_PATH = @"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Valve\Steam";
 
-        /// <summary>
-        /// Checks if a directory contains the "config/config.vdf" file, which typically indicates the Steam install directory.
-        /// </summary>
-        /// <param name="path">Path to check</param>
-        private static bool IsSteamDirectory(string? path) {
-            return !String.IsNullOrEmpty(path) && File.Exists(Path.Combine(path, "config", "config.vdf"));
-        }
+        public const string GrimDawnAppId = "219990";
 
-        public static string GetSteamDirectory() {
-            var path = GetSteamDirectoryFromValveRegistry();
-            if (string.Empty == path) {
-                return GetSteamDirectoryFromShellRegistry();
+        public required string SteamRoot { get; init; }
+        public required IReadOnlyList<string> Libraries { get; init; }
+        public string? GameDir { get; init; }
+        public string? PrefixDir { get; init; }
+        public string? SavePath { get; init; }
+        public string? SaveSource { get; init; }
+
+        public string? CompatDataDir => PrefixDir is null ? null : Path.GetDirectoryName(PrefixDir);
+        public string? BridgeDir => PrefixDir is null ? null : BridgeDirIn(PrefixDir);
+        public static string BridgeDirIn(string prefixDir) => Path.Combine(prefixDir, "drive_c", "users", "steamuser", "AppData", "Local", "EvilSoft", "IAGD");
+
+        private static readonly string[] SteamRootCandidates = [
+            "~/.local/share/Steam",
+            "~/.steam/steam",
+            "~/.steam/debian-installation",
+            "~/.var/app/com.valvesoftware.Steam/data/Steam",
+        ];
+
+        // TODO return multiple / (game + remote)
+        public static string? GetGrimSaveFolders() {
+            var steamRoot = FindSteamRoot();
+            Logger.Info($"Steam installation found: {steamRoot}");
+            var libraries = ReadLibraryFolders(steamRoot);
+            Logger.Info($"Found {libraries.Count} Steam library location(s)");
+            var prefixDir = FindPrefix(libraries);
+            if (!string.IsNullOrEmpty(prefixDir) && Directory.Exists(prefixDir)) {
+                Logger.Info($"Grim Dawn Proton prefix found: {prefixDir}");
             }
-
-            return path;
+            else {
+                Logger.Warn("Could not find Grim Dawn Proton prefix");
+            }
+            var (savePath, saveSource) = FindSavePath(steamRoot, prefixDir);
+            if (!string.IsNullOrEmpty(savePath) && Directory.Exists(savePath)) {
+                Logger.Info($"Grim Dawn save path found: {savePath} ({saveSource})");
+            }
+            return savePath;
         }
 
-        private static string GetSteamDirectoryFromValveRegistry() {
-            foreach (string candidate in new[] { VALVE_32BIT_PATH, VALVE_64BIT_PATH }) {
-
-                using (RegistryKey? registryKey = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam")) {
-                    Logger.Debug("Looking for steam registry key..");
-                    if (registryKey != null) {
-                        string? location = (string?)registryKey.GetValue("SteamPath");
-                        if (IsSteamDirectory(location)) {
-                            Logger.Info("Steam config location located");
-                            return location!;
-                        }
-                    }
-
-                    Logger.Debug($"Steam registry key not found for {candidate}");
+        public static List<string> GetGrimFolders() {
+            var steamRoot = FindSteamRoot();
+            Logger.Info($"Steam installation found: {steamRoot}");
+            var libraries = ReadLibraryFolders(steamRoot);
+            Logger.Info($"Found {libraries.Count} Steam library location(s)");
+            var gameDir = FindGrimDawn(libraries);
+            if (gameDir.Count > 0) {
+                foreach (var path in gameDir) {
+                    Logger.Info($"Grim Dawn installation found: {path}");
                 }
             }
-
-            return string.Empty;
+            else {
+                Logger.Warn("Could not find Grim Dawn in any Steam library");
+            }
+            return gameDir;
         }
 
-
-        private static string GetSteamDirectoryFromShellRegistry() {
-            // Attempt to locate steam via the shell command, registry entry "Computer\HKEY_CLASSES_ROOT\steam\Shell\Open\Command"
-            using (RegistryKey? registryKey = Microsoft.Win32.Registry.ClassesRoot.OpenSubKey(@"steam\Shell\Open\Command")) {
-                string? content = (string?)registryKey?.GetValue("");
-                if (!String.IsNullOrEmpty(content) && content.Contains(".exe")) {
-                    var sub = content.Substring(0, 4 + content.IndexOf(".exe", StringComparison.InvariantCultureIgnoreCase)).Replace("\"", "");
-                    var exe = Path.GetFullPath(sub);
-                    if (File.Exists(exe)) {
-                        var parent = Directory.GetParent(exe);
-                        if (parent != null && IsSteamDirectory(parent.FullName)) {
-                            return parent.FullName;
-                        }
-                    }
-                }
+        public static string? GetGrimUserPrefix() {
+            var steamRoot = FindSteamRoot();
+            Logger.Info($"Steam installation found: {steamRoot}");
+            var libraries = ReadLibraryFolders(steamRoot);
+            Logger.Info($"Found {libraries.Count} Steam library location(s)");
+            var prefixDir = FindPrefix(libraries);
+            if (!string.IsNullOrEmpty(prefixDir) && Directory.Exists(prefixDir)) {
+                Logger.Info($"Grim Dawn Proton prefix found: {prefixDir}");
+            }
+            else {
+                Logger.Warn("Could not find Grim Dawn Proton prefix");
             }
 
-            return string.Empty;
+            var prefixUserDir = FindPrefixUser(prefixDir);
+            if (!string.IsNullOrEmpty(prefixUserDir) && Directory.Exists(prefixUserDir)) {
+                Logger.Info($"Grim Dawn Proton user prefix found: {prefixUserDir}");
+            }
+            else {
+                Logger.Warn("Could not find Grim Dawn Proton user prefix");
+            }
+            return prefixUserDir;
         }
 
-        /// <summary>
-        /// Attempts to locate all the steam install folders from the steam VDF config file.
-        /// Note: This does NOT include the actual steam install folder.
-        /// 
-        /// The result of this operation should be appended along with the "{steamFolder}\steamapps\steamapps" folder.
-        /// </summary>
-        /// <param name="vdf"></param>
-        /// <returns></returns>
-        public static List<string> ExtractSteamLibraryPaths(string vdf) {
-            List<string> paths = new List<string>();
-            if (File.Exists(vdf)) {
-                dynamic config = VdfConvert.Deserialize(File.ReadAllText(vdf));
-                var root = config.Value;
-
-#if !DEBUG
-                for (int i = 0; i < 8; i++) {
-
-                    try {
-                        paths.Add(root[$"{i}"].path.ToString());
-                    }
-                    catch (KeyNotFoundException) {
-                        Logger.Debug($"Key #{i} not found, stopping parse of steam config");
-                        return paths;
-                    }
-                    catch (RuntimeBinderException) {
-                        Logger.Debug($"Key #{i} not found, stopping parse of steam config");
-                        return paths;
-                    }
+        private static string? FindPrefixUser(string? prefixDir) {
+            if (!string.IsNullOrEmpty(prefixDir) && Directory.Exists(prefixDir)) {
+                var prefixUser = Path.Combine( prefixDir, "drive_c", "users", "steamuser");
+                if (Directory.Exists(prefixUser)) {
+                    return prefixUser;
                 }
-#endif
+            }
+            return null;
+        }
+
+        private static string FindSteamRoot() {
+            foreach (var candidate in SteamRootCandidates) {
+                var path = Expand(candidate);
+                Logger.Debug($"Checking Steam location: {path}");
+                if (Directory.Exists(Path.Combine(path, "steamapps"))) {
+                    return path;
+                }
+            }
+            throw new DirectoryNotFoundException("No Steam installation found. Tried: " + string.Join(", ", SteamRootCandidates));
+        }
+
+        public static List<string> FindGrimDawn(IEnumerable<string> libraries) {
+            var paths = new List<string>();
+
+            foreach (var library in libraries) {
+                var path = Path.Combine(library, "steamapps", "common", "Grim Dawn");
+                if (File.Exists(Path.Combine(path, "database", "database.arz"))) {
+                    paths.Add(path);
+                }
             }
             return paths;
         }
 
-        public static List<string> GetGrimFolderFromSteamLibrary(List<string> libraryPaths) {
-            List<string> validPaths = new List<string>();
-            foreach (var path in libraryPaths) {
-                var subPath = Path.Combine(path, "steamapps", "common", "Grim Dawn");
-                if (Directory.Exists(subPath)) {
-                    if (File.Exists(Path.Combine(subPath, "database", "database.arz"))) {
-                        validPaths.Add(subPath);
+        private static string? FindPrefix(IEnumerable<string> libraries) {
+            return libraries.Select(l => Path.Combine(l, "steamapps", "compatdata", GrimDawnAppId, "pfx")).FirstOrDefault(Directory.Exists);
+        }
+
+        private static List<string> ReadLibraryFolders(string steamRoot) {
+            var libraries = new List<string> { steamRoot };
+            var vdfPath = Path.Combine(steamRoot, "steamapps", "libraryfolders.vdf");
+            if (!File.Exists(vdfPath)) {
+                Logger.Warn($"Steam library config not found: {vdfPath}");
+                return libraries;
+            }
+            foreach (var line in File.ReadLines(vdfPath)) {
+                var trimmed = line.Trim();
+                if (!trimmed.StartsWith("\"path\"", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                // Example:
+                // "path"      "/mnt/games/SteamLibrary"
+                var parts = trimmed.Split('"', StringSplitOptions.RemoveEmptyEntries);
+                var path = parts.LastOrDefault()?.Trim();
+                if (string.IsNullOrWhiteSpace(path))
+                    continue;
+                if (!Directory.Exists(path)) {
+                    Logger.Warn($"Steam library path does not exist: {path}");
+                    continue;
+                }
+                if (!libraries.Contains(path)) {
+                    libraries.Add(path);
+                    Logger.Debug($"Steam library found: {path}");
+                }
+            }
+            return libraries;
+        }
+
+        private static (string?, string?) FindSavePath(string steamRoot, string? prefix) {
+            var userdata = Path.Combine(steamRoot, "userdata");
+            if (Directory.Exists(userdata)) {
+                foreach (var user in Directory.GetDirectories(userdata)) {
+                    var candidate = Path.Combine(user, GrimDawnAppId, "remote", "save");
+                    if (File.Exists(Path.Combine(candidate, "transfer.gst"))) {
+                        return (candidate, $"Steam Cloud userdata (user {Path.GetFileName(user)})");
                     }
                 }
             }
 
-            return validPaths;
+            if (!string.IsNullOrEmpty(prefix) && Directory.Exists(prefix)) {
+                var docs = Path.Combine(prefix, "drive_c", "users", "steamuser", "Documents", "My Games", "Grim Dawn", "save");
+                if (!Directory.Exists(docs)) {
+                    docs = Path.Combine(prefix, "drive_c", "users", "steamuser", "Documents", "My Games", "Grim Dawn", "Save");
+                }
+
+                if (Directory.Exists(docs)) {
+                    var populated = Directory.EnumerateFiles(docs, "transfer.*").Any();
+                    return (docs, populated ? "prefix Documents" : "prefix Documents (EMPTY)");
+                }
+            }
+            return (null, null);
+        }
+
+        private static string Expand(string path) {
+            if (!path.StartsWith('~'))
+                return path;
+
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), path[2..]);
         }
     }
-
 }

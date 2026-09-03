@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows.Forms;
+// using System.Windows.Forms;
 using EvilsoftCommons;
 using log4net;
 
@@ -59,10 +59,12 @@ namespace IAGrim.UI.Misc.CEF {
 
         public void SetFeedback(string level, string feedback, string helpUrl) {
             _cefBrowserHandler.ShowMessage(feedback, UserFeedbackLevel.Info, helpUrl);
+            Logger.Info($"Feedback [{level}]: {feedback} ({helpUrl})");
         }
 
         public void SetFeedback(string feedback) {
             _cefBrowserHandler.ShowMessage(feedback, UserFeedbackLevel.Info);
+            Logger.Info($"Feedback: {feedback}");
         }
     }
 }

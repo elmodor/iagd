@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="Cloud/Cloud.csproj" />
+  <Project Path="DataAccess/DataAccess.csproj" />
+  <Project Path="EvilsoftCommons/EvilsoftCommons.csproj" />
+  <Project Path="Parser/Parser.csproj" />
+  <Project Path="StatTranslator/StatTranslator.csproj" />
+  <Project Path="IAGrim/IAGrim.csproj" />
+</Solution>

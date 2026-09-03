@@ -1,8 +1,8 @@
-#include "stdafx.h"
 #include <stdlib.h>
+#include "GrimTypes.h"
 #include "MessageType.h"
-#include <detours.h>
 #include "InventorySack_AddItem.h"
+#include "Conversions.h"
 
 #include <codecvt>
 
@@ -15,8 +15,10 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <iostream>
 #include <sstream>
+#include <filesystem>
 #include "Logger.h"
 #include "VTableDispatch.h"
+#include "MinHook.h"
 
 
 #define STASH_1 0
@@ -54,43 +56,115 @@ std::set<std::wstring> InventorySack_AddItem::m_depositQueue;
 boost::mutex InventorySack_AddItem::m_mutex;
 
 void InventorySack_AddItem::EnableHook() {
-	VTableDispatch::Init();
+    VTableDispatch::Init();
 
-	// GameInfo::
-	dll_GameInfo_GameInfo_Param = (GameInfo_GameInfo_Param)GetProcAddressOrLogToFile(L"Engine.dll", GAMEINFO_CONSTRUCTOR_ARGS);
-	DetourTransactionBegin();
-	DetourUpdateThread(GetCurrentThread());
-	DetourAttach((PVOID*)&dll_GameInfo_GameInfo_Param, Hooked_GameInfo_GameInfo_Param);
-	DetourTransactionCommit();
+    // GameInfo::
+    dll_GameInfo_GameInfo_Param =
+        (GameInfo_GameInfo_Param)GetProcAddressOrLogToFile(
+            L"Engine.dll",
+            GAMEINFO_CONSTRUCTOR_ARGS
+        );
 
-	dll_InventorySack_AddItem_Drop = (InventorySack_AddItem_Drop)GetProcAddressOrLogToFile(L"Game.dll", "?AddItem@InventorySack@GAME@@QEAA_NPEAVItem@2@_N1@Z");
-	DetourTransactionBegin();
-	DetourUpdateThread(GetCurrentThread());
-	DetourAttach((PVOID*)&dll_InventorySack_AddItem_Drop, Hooked_InventorySack_AddItem_Drop);
-	DetourTransactionCommit();
+    if (dll_GameInfo_GameInfo_Param == nullptr) {
+        return;
+    }
+
+    {
+        LPVOID target = reinterpret_cast<LPVOID>(dll_GameInfo_GameInfo_Param);
+
+        MH_STATUS status = MH_CreateHook(
+            target,
+            reinterpret_cast<LPVOID>(Hooked_GameInfo_GameInfo_Param),
+            reinterpret_cast<LPVOID*>(&dll_GameInfo_GameInfo_Param)
+        );
+
+        if (status == MH_OK) {
+            status = MH_EnableHook(target);
+        }
+
+        if (status != MH_OK) {
+            MH_RemoveHook(target);
+            return;
+        }
+    }
 
 
-	dll_InventorySack_AddItem_Vec2 = (InventorySack_AddItem_Vec2)GetProcAddressOrLogToFile(L"Game.dll", "?AddItem@InventorySack@GAME@@QEAA_NAEBVVec2@2@PEAVItem@2@_N@Z");
-	DetourTransactionBegin();
-	DetourUpdateThread(GetCurrentThread());
-	DetourAttach((PVOID*)&dll_InventorySack_AddItem_Vec2, Hooked_InventorySack_AddItem_Vec2);
-	DetourTransactionCommit();
+    dll_InventorySack_AddItem_Drop =
+        (InventorySack_AddItem_Drop)GetProcAddressOrLogToFile(
+            L"Game.dll",
+            "?AddItem@InventorySack@GAME@@QEAA_NPEAVItem@2@_N1@Z"
+        );
+
+    if (dll_InventorySack_AddItem_Drop == nullptr) {
+        return;
+    }
+
+    {
+        LPVOID target =
+            reinterpret_cast<LPVOID>(dll_InventorySack_AddItem_Drop);
+
+        MH_STATUS status = MH_CreateHook(
+            target,
+            reinterpret_cast<LPVOID>(Hooked_InventorySack_AddItem_Drop),
+            reinterpret_cast<LPVOID*>(&dll_InventorySack_AddItem_Drop)
+        );
+
+        if (status == MH_OK) {
+            status = MH_EnableHook(target);
+        }
+
+        if (status != MH_OK) {
+            MH_RemoveHook(target);
+            return;
+        }
+    }
 
 
-	dll_InventorySack_SetTransferOpen = (InventorySack_SetTransferOpen)HookGame(
-		SET_TRANSFER_OPEN,
-		Hooked_InventorySack_SetTransferOpen,
-		m_dataQueue,
-		m_hEvent,
-		2 // Diagnostic hook id only (formerly TYPE_OPEN_CLOSE_TRANSFER_STASH); instaloot needs this hook to know when the transfer stash is open.
-	);
+    dll_InventorySack_AddItem_Vec2 =
+        (InventorySack_AddItem_Vec2)GetProcAddressOrLogToFile(
+            L"Game.dll",
+            "?AddItem@InventorySack@GAME@@QEAA_NAEBVVec2@2@PEAVItem@2@_N@Z"
+        );
+
+    if (dll_InventorySack_AddItem_Vec2 == nullptr) {
+        return;
+    }
+
+    {
+        LPVOID target =
+            reinterpret_cast<LPVOID>(dll_InventorySack_AddItem_Vec2);
+
+        MH_STATUS status = MH_CreateHook(
+            target,
+            reinterpret_cast<LPVOID>(Hooked_InventorySack_AddItem_Vec2),
+            reinterpret_cast<LPVOID*>(&dll_InventorySack_AddItem_Vec2)
+        );
+
+        if (status == MH_OK) {
+            status = MH_EnableHook(target);
+        }
+
+        if (status != MH_OK) {
+            MH_RemoveHook(target);
+            return;
+        }
+    }
+
+    dll_InventorySack_SetTransferOpen =
+        (InventorySack_SetTransferOpen)HookGame(
+            SET_TRANSFER_OPEN,
+            reinterpret_cast<void*>(Hooked_InventorySack_SetTransferOpen),
+            m_dataQueue,
+            m_hEvent,
+            2
+        );
 
 	m_isTransferStashOpen = false;
 
 	dll_GameEngine_Update = (GameEngine_Update)HookGame(
 		"?Update@GameEngine@GAME@@QEAAXH@Z",
-		Hooked_GameEngine_Update,
-		m_dataQueue,
+		reinterpret_cast<void*>(Hooked_GameEngine_Update),
+      m_dataQueue,
 		m_hEvent,
 		TYPE_GAMEENGINE_UPDATE
 	);
@@ -136,18 +210,6 @@ InventorySack_AddItem::InventorySack_AddItem(DataQueue* dataQueue, HANDLE hEvent
 
 InventorySack_AddItem::InventorySack_AddItem() {
 	InventorySack_AddItem::m_hEvent = NULL;
-}
-
-void InventorySack_AddItem::DisableHook() {
-	DetourTransactionBegin();
-	DetourUpdateThread(GetCurrentThread());
-
-
-	DetourDetach((PVOID*)&dll_GameInfo_GameInfo_Param, Hooked_GameInfo_GameInfo_Param);
-	
-	DetourTransactionCommit();
-
-	privateStashHook.DisableHook();
 }
 
 /// <summary>
@@ -291,6 +353,8 @@ static void DumpReplicaInfo(const GAME::ItemReplicaInfo& item) {
 	msg += L"\n  stackSize         = " + std::to_wstring(item.stackSize);
 	msg += L"\n  seedRerolls       = " + std::to_wstring(item.seedRerolls);
 	msg += L"\n  affixRerolls      = " + std::to_wstring(item.affixRerolls);
+	msg += L"\n  unknownFoaField1  = " + std::to_wstring(item.unknownFoaField1);
+	msg += L"\n  unknownFoaField2  = " + std::to_wstring(item.unknownFoaField2);
 
 	// Raw hex dump of the object. sizeof gives us the struct our DLL believes
 	// in; the game may write more, but this shows how our fields overlay memory.
@@ -389,18 +453,39 @@ bool InventorySack_AddItem::IsRelevant(const GAME::ItemReplicaInfo& item) {
 
 
 
-std::wstring randomFilename() {
-	std::wstring str(L"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
+// std::wstring randomFilename() {
+// 	std::wstring str(L"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
+//
+// 	std::random_device rd;
+// 	std::mt19937 generator(rd());
+//
+// 	std::shuffle(str.begin(), str.end(), generator);
+//
+// 	return str.substr(0, 32) + L".csv";    // assumes 32 < number of characters in str         
+// }
+std::wstring randomFilename(const std::wstring& folder)
+{
+    constexpr wchar_t chars[] = L"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
-	std::random_device rd;
-	std::mt19937 generator(rd());
+    std::random_device rd;
+    std::mt19937 generator(rd());
 
-	std::shuffle(str.begin(), str.end(), generator);
+    while (true)
+    {
+        std::wstring name;
+        name.reserve(32);
 
-	return str.substr(0, 32) + L".csv";    // assumes 32 < number of characters in str         
+        for (int i = 0; i < 32; ++i)
+            name += chars[generator() % (std::size(chars) - 1)];
+
+        name += L".csv";
+
+        std::filesystem::path fullPath = std::filesystem::path(folder) / name;
+
+        if (!std::filesystem::exists(fullPath))
+            return name;
+    }
 }
-
-
 
 bool InventorySack_AddItem::Persist(
 	GAME::ItemReplicaInfo replicaInfo,
@@ -408,7 +493,8 @@ bool InventorySack_AddItem::Persist(
 	std::wstring mod,
 	const std::vector<GAME::GameTextLine>& gameTextLines)
 {
-	std::wstring fullPath = m_storageFolder + randomFilename();
+	std::wstring fullPath = m_storageFolder + randomFilename(m_storageFolder);
+	std::wstring fullPathTmp = fullPath + L".tmp";
 
 	// Use std::ofstream (narrow) and convert all wide strings to UTF-8 explicitly.
 	// std::wofstream converts through the system ANSI codepage, which destroys
@@ -416,7 +502,7 @@ bool InventorySack_AddItem::Persist(
 	std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> utf8conv;
 
 	std::ofstream stream;
-	stream.open(fullPath, std::ios::binary);
+	stream.open(fullPathTmp.c_str(), std::ios::binary);
 
 	// Write UTF-8 BOM so readers can detect encoding
 	stream << "\xEF\xBB\xBF";
@@ -443,9 +529,11 @@ bool InventorySack_AddItem::Persist(
 		std::to_wstring(gameTextLines.size()) + L" stat lines)");
 
 	std::ifstream verification;
-	verification.open(fullPath);
+	verification.open(fullPathTmp.c_str());
 	if (verification) {
-		return true;
+        verification.close();
+	    if (MoveFileW(fullPathTmp.c_str(), fullPath.c_str()))
+            return true;
 	}
 
 	LogToFile(LogLevel::WARNING, L"Error: written CSV file does not exist");
@@ -474,11 +562,42 @@ void InventorySack_AddItem::DisplayMessage(std::wstring text, std::wstring body)
 				return;
 			}
 
+         auto MakeGameBString = [](const std::wstring& source) -> GAME::GameWString
+         {
+             GAME::GameWString result{};
+             result.size = source.size();
+             if (result.size < 8)
+             {
+                 result.capacity = 7;
+                 for (std::size_t i = 0; i < result.size; ++i)
+                 {
+                     result.buffer[i] =
+                         static_cast<unsigned short>(source[i]);
+                 }
+                 result.buffer[result.size] = 0;
+             }
+             else
+             {
+                 result.capacity = result.size;
+                 result.ptr = new unsigned short[result.size + 1];
+                 for (std::size_t i = 0; i < result.size; ++i)
+                 {
+                     result.ptr[i] =
+                         static_cast<unsigned short>(source[i]);
+                 }
+                 result.ptr[result.size] = 0;
+             }
+             return result;
+         };
+          // Convert our normal Windows strings to the exact string type
+         // expected by the game's ShowCinematicText().
+         auto gameText = MakeGameBString(text);
+         auto gameBody = MakeGameBString(body);
 
 			LogToFile(LogLevel::INFO, L"Display: " + text + L" - " + body);
 
 			// Checking if the game is loading here says true.. checking if its waiting crashes.. odd..
-			fnShowCinematicText(engine, &text, &body, 5, &color, false);
+			fnShowCinematicText(engine, gameText, gameBody, 5, color, false);
 			m_lastNotificationTickTime = now;
 
 		} else {
@@ -496,10 +615,13 @@ void InventorySack_AddItem::DisplayMessage(std::wstring text, std::wstring body)
 	}
 }
 
+
 std::wstring InventorySack_AddItem::GetModName(GAME::GameInfo* gameInfo) {
-	std::wstring modName;
+   GAME::GameWString gameString{};
+   std::wstring modName;
 	if (fnGetGameInfoMode(gameInfo) != 1) { // Skip mod name if we're in Crucible, we don't treat that as a mod.
-		fnGetModNameArg(gameInfo, &modName);
+		fnGetModNameArg(gameInfo, &gameString);
+      modName = GameStringToWString(gameString);
 		modName.erase(std::remove(modName.begin(), modName.end(), '\r'), modName.end());
 		modName.erase(std::remove(modName.begin(), modName.end(), '\n'), modName.end());
 	}
@@ -537,8 +659,8 @@ bool InventorySack_AddItem::IsSackToLootFrom(void* stashTab, GAME::GameEngine* g
 	}
 	else {
 		// m_stashTabLootFrom is index from 1, we never want to go <0 nor >= size.
-		toLootFrom = max(0,
-			min(sacks->size() - 1, m_stashTabLootFrom - 1)
+		toLootFrom = std::max(0,
+			std::min(static_cast<int>(sacks->size()) - 1, m_stashTabLootFrom - 1)
 		);
 	}
 
@@ -546,6 +668,7 @@ bool InventorySack_AddItem::IsSackToLootFrom(void* stashTab, GAME::GameEngine* g
 	const auto lastSackPtr = sacks->at(toLootFrom);
 	return static_cast<void*>(lastSackPtr) == stashTab;
 }
+
 
 /// <summary>
 /// Attempt to classify the item as relevant <-> not relevant for looting, and pass it on for persisting.
@@ -564,10 +687,11 @@ bool InventorySack_AddItem::HandleItem(void* stash, GAME::Item* item) {
 	if (!IsSackToLootFrom(stash, gameEngine))
 		return false;
 
-	GAME::ItemReplicaInfo replica;
-	fnItemGetItemReplicaInfo(item, replica);
-	if (!IsRelevant(replica))
-		return false;
+   GAME::GameItemReplicaInfo gameReplica{};
+   fnItemGetItemReplicaInfo(item, gameReplica);
+   GAME::ItemReplicaInfo replica = ConvertGameReplica(gameReplica);
+   if (!IsRelevant(replica))
+       return false;
 
 	GAME::Engine* engine = fnGetEngine();
 	if (engine == nullptr) {
@@ -583,7 +707,11 @@ bool InventorySack_AddItem::HandleItem(void* stash, GAME::Item* item) {
 	std::vector<GAME::GameTextLine> gameTextLines = {};
 	GAME::Character* character = (GAME::Character*)fnGetMainPlayer(gameEngine);
 	if (character != nullptr) {
-		VTableDispatch::Call(item, character, &gameTextLines, true);
+      GAME::GameVector<GAME::GameTextLineRaw> gameLines{};
+		LogToFile(LogLevel::WARNING, L"Before call");
+		VTableDispatch::Call(item, character, &gameLines, true);
+		LogToFile(LogLevel::WARNING, L"After call");
+      gameTextLines = ConvertGameTextLines(gameLines);
 		LogToFile(LogLevel::INFO, L"VTableDispatch returned " +
 			std::to_wstring(gameTextLines.size()) + L" text lines");
 	}
@@ -657,7 +785,7 @@ std::wstring GetFolderToMoveTo(std::wstring modName, bool isHardcore) {
 /// <returns></returns>
 GAME::ItemReplicaInfo* InventorySack_AddItem::ReadReplicaInfo(const std::wstring& filename) {
 	try {
-		std::ifstream file(filename);
+		std::ifstream file(filename.c_str());
 		return GAME::Deserialize(GAME::GetNextLineAndSplitIntoTokens(file));
 	}
 	catch (std::exception& ex) {
@@ -704,8 +832,8 @@ GAME::InventorySack* InventorySack_AddItem::GetSackToDepositTo(GAME::GameEngine*
 	}
 	else {
 		// m_stashTabLootFrom is index from 1, we never want to go <0 nor >= size.
-		toDepositTo = max(0,
-			min(sacks->size() - 1, m_stashTabDepositTo - 1)
+		toDepositTo = std::max(0,
+			std::min(static_cast<int>(sacks->size()) - 1, m_stashTabDepositTo - 1)
 		);
 	}
 
@@ -775,22 +903,22 @@ void* __fastcall InventorySack_AddItem::Hooked_GameEngine_Update(void* This, int
 				GAME::Rect itemPosition;
 				boost::lock_guard<boost::mutex> guard(m_mutex);
 
-
 				bool success = false;
 				std::wstring targetFolder = GetFolderToMoveTo(GetModName(gameInfo), fnGetHardcore(gameInfo));
 				for (auto it = m_depositQueue.begin(); it != m_depositQueue.end(); ++it) {
-					std::wstring targetFile = targetFolder + L"\\" + randomFilename();
+					std::wstring targetFile = targetFolder + L"\\" + randomFilename(targetFolder + L"\\");
 					LogToFile(LogLevel::INFO, L"Handling file " + *it);
 
 					GAME::ItemReplicaInfo* replica = ReadReplicaInfo(*it);
 					if (replica != nullptr) {
 						//LogToFile(L"DEBUG Creating item from replica..");
 						try {
-							auto item = fnCreateItem(replica);
+                     GAME::GameItemReplicaInfo gameReplica = ConvertToGameReplica(*replica);
+							auto* item = fnCreateItem(gameReplica);
 							//LogToFile(L"DEBUG Adding item to inventory sack..");
 							if (item == nullptr) {
 								LogToFile(LogLevel::FATAL, L"Error creating item, re-depositing back into IA. (Mod item transferred into vanilla?)");
-								targetFile = m_storageFolder + randomFilename();
+								targetFile = m_storageFolder + randomFilename(m_storageFolder);
 								LogToFile(LogLevel::INFO, L"Moving to " + targetFile);
 							}
 							else {
@@ -800,7 +928,7 @@ void* __fastcall InventorySack_AddItem::Hooked_GameEngine_Update(void* This, int
 									success = true;
 								}
 								else {
-									targetFile = m_storageFolder + randomFilename();
+									targetFile = m_storageFolder + randomFilename(m_storageFolder);
 									LogToFile(LogLevel::INFO, L"Target sack is full, re-depositing to IA as " + targetFile);
 								}
 
@@ -816,7 +944,7 @@ void* __fastcall InventorySack_AddItem::Hooked_GameEngine_Update(void* This, int
 						LogToFile(LogLevel::INFO, L"Invalid item, moving to " + targetFile);
 					}
 
-					if (!MoveFile(it->c_str(), targetFile.c_str())) {
+					if (!MoveFileW(it->c_str(), targetFile.c_str())) {
 						LogToFile(LogLevel::WARNING, L"Failed moving file: \"" + *it + L"\" to \"" + targetFile + L"\", error code: " + std::to_wstring(GetLastError()));
 					}
 				}

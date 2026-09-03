@@ -55,18 +55,18 @@ class ItemContainer extends PureComponent<Props, object> {
     }
   }
 
-  transferSingle(item: IItem) {
+  async transferSingle(item: IItem) {
     const id = item.uniqueIdentifier + '/-/-/-';
     const url = (id.split('/') as any) as object[];
-    const r = transferItem(url, false);
+    const r = await transferItem(url, false);
     if (r.success) {
       this.props.onItemReduce(item, false);
     }
   }
 
-  transferAll(item: IItem[]) {
+  async transferAll(item: IItem[]) {
     const url = (item[0].url as any) as object[];
-    const r = transferItem(url, true);
+    const r = await transferItem(url, true);
     if (r.success) {
       this.props.onItemReduce(item[0], true); // Don't particularly matter which we reduce when doing transferAll
     }

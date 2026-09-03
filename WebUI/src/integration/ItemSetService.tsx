@@ -8,22 +8,27 @@ interface ItemSetAssociation {
 
 let dataset = [] as Array<ItemSetAssociation>;
 const reverseLookup: { [index: string]: string[] } = {};
+let initialized = false;
+
+export async function initializeItemSetAssociations(): Promise<void> {
+  if (initialized) {
+    return;
+  }
+  console.debug("Fetching item set associations");
+  const data = await getItemSetAssociations();
+  dataset = JSON.parse(data);
+  for (const entry of dataset) {
+    if (reverseLookup.hasOwnProperty(entry.setName)) {
+      reverseLookup[entry.setName] = reverseLookup[entry.setName].concat(entry.baseRecord);
+    } else {
+      reverseLookup[entry.setName] = [entry.baseRecord];
+    }
+  }
+  initialized = true;
+}
 
 // Returns the set name or undefined
 export default function GetSetName(baseRecord: string): string | undefined {
-  if (dataset.length === 0) {
-    dataset = JSON.parse(getItemSetAssociations());
-
-    for (const idx in dataset) {
-      const entry = dataset[idx];
-      if (reverseLookup.hasOwnProperty(entry.setName)) {
-        reverseLookup[entry.setName] = reverseLookup[entry.setName].concat(entry.baseRecord);
-      } else {
-        reverseLookup[entry.setName] = [entry.baseRecord];
-      }
-    }
-  }
-
   const elems = dataset.filter(elem => elem.baseRecord === baseRecord);
   if (elems.length > 0) {
     return elems[0].setName;

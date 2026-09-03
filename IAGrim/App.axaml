@@ -1,0 +1,107 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="IAGrim.Linux.App"
+             RequestedThemeVariant="Light">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <Color x:Key="IAGrimBackground">#E8D5B6</Color>
+                    <Color x:Key="IAGrimForeground">#000000</Color>
+                    <Color x:Key="IAGrimSurface">#D8C19D</Color>
+                    <Color x:Key="IAGrimHeader">#CBB28B</Color>
+                    <Color x:Key="IAGrimWindowBorder">#8C7A60</Color>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <Color x:Key="IAGrimBackground">#232220</Color>
+                    <Color x:Key="IAGrimForeground">#B0B0B0</Color>
+                    <Color x:Key="IAGrimSurface">#333333</Color>
+                    <Color x:Key="IAGrimHeader">#3D3D3D</Color>
+                    <Color x:Key="IAGrimWindowBorder">#666666</Color>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme>
+            <FluentTheme.Palettes>
+                <ColorPaletteResources x:Key="Light"
+                    RegionColor="#E8D5B6" />
+                <ColorPaletteResources x:Key="Dark"
+                    RegionColor="#232220" />
+            </FluentTheme.Palettes>
+        </FluentTheme>
+        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
+        <StyleInclude Source="avares://IAGrim/Theme/Firefox/FirefoxCheckBox.axaml"/>
+
+        <Style Selector="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource IAGrimForeground}"/>
+        </Style>
+        <Style Selector="Label">
+            <Setter Property="Foreground" Value="{DynamicResource IAGrimForeground}"/>
+        </Style>
+
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="{DynamicResource IAGrimBackground}"/>
+
+            <Setter Property="Foreground" Value="{DynamicResource IAGrimForeground}"/>
+        </Style>
+
+        <Style Selector="CheckBox">
+            <Setter Property="Foreground" Value="{DynamicResource IAGrimForeground}"/>
+        </Style>
+
+        <Style Selector="RadioButton">
+            <Setter Property="Background" Value="{DynamicResource IAGrimBackground}"/>
+
+            <Setter Property="Foreground" Value="{DynamicResource IAGrimForeground}"/>
+        </Style>
+
+        <Style Selector="GroupBox">
+            <Setter Property="Background" Value="{DynamicResource IAGrimBackground}"/>
+
+            <Setter Property="Foreground" Value="{DynamicResource IAGrimForeground}"/>
+        </Style>
+
+        <Style Selector="TabControl">
+            <Setter Property="Background" Value="{DynamicResource IAGrimBackground}"/>
+
+            <Setter Property="Foreground" Value="{DynamicResource IAGrimForeground}"/>
+        </Style>
+        <Style Selector="TabItem">
+            <Setter Property="Background" Value="{DynamicResource IAGrimBackground}"/>
+
+            <Setter Property="Foreground" Value="{DynamicResource IAGrimForeground}"/>
+        </Style>
+
+        <Style Selector="DataGrid">
+            <Setter Property="Background" Value="{DynamicResource IAGrimSurface}"/>
+
+            <Setter Property="Foreground" Value="{DynamicResource IAGrimForeground}"/>
+        </Style>
+        <Style Selector="DataGridColumnHeader">
+            <Setter Property="Background" Value="{DynamicResource IAGrimHeader}"/>
+
+            <Setter Property="Foreground" Value="{DynamicResource IAGrimForeground}"/>
+        </Style>
+
+        <Style Selector="ListBox">
+            <Setter Property="Background" Value="{DynamicResource IAGrimSurface}"/>
+
+            <Setter Property="Foreground" Value="{DynamicResource IAGrimForeground}"/>
+        </Style>
+        <Style Selector="ListBoxItem:pointerover">
+            <Setter Property="Background" Value="{DynamicResource IAGrimHeader}"/>
+        </Style>
+        <Style Selector="ListBoxItem:selected">
+            <Setter Property="Background" Value="{DynamicResource IAGrimHeader}"/>
+
+            <Setter Property="Foreground" Value="{DynamicResource IAGrimForeground}"/>
+        </Style>
+
+        <Style Selector="NativeWebView">
+            <Setter Property="Background" Value="{DynamicResource IAGrimBackground}"/>
+        </Style>
+    </Application.Styles>
+</Application>

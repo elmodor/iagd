@@ -1,20 +1,16 @@
-﻿using System;
+﻿using Avalonia.Controls;
+using IAGrim.Services.ItemStats;
+using IAGrim.Theme;
 using System.Collections.Generic;
 using System.Linq;
-using System.Windows.Forms;
-using IAGrim.Services.ItemStats;
 
 namespace IAGrim.UI.Filters {
-    partial class DamageOverTimeFilter : UserControl {
+    public partial class DamageOverTimeFilter : UserControl {
         public DamageOverTimeFilter() {
             InitializeComponent();
             FirefoxCheckBox.EnableNumericFilters(this);
-            Load += DamageOverTimeFilter_Load;
         }
 
-        public void DamageOverTimeFilter_Load(object? sender, EventArgs e) {
-            dotPanel.ToggleState();
-        }
 
         // Selected DoT checkboxes paired with their stat fields, built once so both the plain "stat exists"
         // filters and the per-checkbox numeric filters derive from the same mapping.
@@ -32,7 +28,7 @@ namespace IAGrim.UI.Filters {
             };
 
             foreach (var (cb, dot) in dotTypes) {
-                if (!cb.Checked)
+                if (cb.IsChecked != true)
                     continue;
 
                 groups.Add((cb, new[] {
@@ -47,7 +43,7 @@ namespace IAGrim.UI.Filters {
                 }));
             }
 
-            if (dmgLifeLeech.Checked)
+            if (dmgLifeLeech.IsChecked == true)
                 groups.Add((dmgLifeLeech, new[] {"offensiveLifeLeechMin", "offensiveSlowLifeLeachMin"}));
 
             return groups;
