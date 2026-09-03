@@ -129,6 +129,7 @@ add_library(Hook SHARED
     SetHardcore.cpp
     SettingsReader.cpp
     Conversions.cpp
+    CrashReporter.cpp
 )
 
 target_link_libraries(Hook PRIVATE

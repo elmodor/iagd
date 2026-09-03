@@ -6,6 +6,8 @@ using EvilsoftCommons.Exceptions;
 using IAGrim.Backup.Cloud;
 using IAGrim.Services;
 using IAGrim.Settings;
+using IAGrim.UI;
+using IAGrim.UI.Misc.CEF;
 using IAGrim.Utilities;
 using StatTranslator;
 using log4net;
@@ -39,6 +41,33 @@ class Program
         ExceptionReporter.Uuid = uuid;
     }
 
+    /// <summary>
+    /// Builds the session factory ahead of the first caller that needs it.
+    ///
+    /// Purely an overlap: a failure here is swallowed, because <see cref="SessionFactory"/> caches it on the
+    /// shared Lazy and rethrows it to whoever asks next -- on their thread, with their error handling intact.
+    /// </summary>
+    private static void WarmUpDatabase() {
+        var thread = new Thread(() => {
+            ExceptionReporter.EnableLogUnhandledOnThread();
+
+            try {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                SessionFactory.Warmup();
+                Logger.Info($"[timing] Session factory warmup took {sw.ElapsedMilliseconds} ms");
+            }
+            catch (Exception ex) {
+                Logger.Debug($"Session factory warmup failed, deferring to the first real caller: {ex.Message}");
+            }
+        });
+
+        // Never hold up process exit; the second-instance path bails out long before this finishes.
+        thread.IsBackground = true;
+        thread.Name = "DbWarmup";
+        thread.Start();
+    }
+
+
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
     // yet and stuff might break.
@@ -70,12 +99,32 @@ class Program
         // see https://aka.ms/applicationconfiguration.
         // ApplicationConfiguration.Initialize();
 
+        // Compiling the NHibernate mappings is ~0.5s of work that nothing before Run() depends on, so it runs
+        // alongside the version checks and the diagnostics dump instead of after them. The factory is a shared
+        // Lazy, so Migrate() below either finds it built or blocks until it is.
+        WarmUpDatabase();
+
         Logger.Info("Starting exception monitor for bug reports..");
         Logger.Debug("Anonymous usage statistics can be seen at https://webstats.evilsoft.net/iagd");
         ExceptionReporter.EnableLogUnhandledOnThread();
 
         Uris.Initialize(Uris.EnvCloud);
         StartupService.Init();
+
+        if (DiagnosticsReport.IsRequested(args)) {
+            var reportPath = DiagnosticsReport.WriteAndOpen();
+            MessageBox.Show(
+                reportPath != null
+                    ? $"Diagnostics written to:\n{reportPath}\n\nAttach this file to your bug report."
+                    : "The diagnostics report could not be written. See the log for details.",
+                "Item Assistant diagnostics", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+            LogManager.Shutdown();
+            System.Environment.Exit(0);
+        }
+
+        // Into the ordinary log as well, so every log file a user sends already carries it.
+        DiagnosticsReport.LogAtStartup();
 
 #if DEBUG
             Uris.Initialize(Uris.EnvLocalDev);

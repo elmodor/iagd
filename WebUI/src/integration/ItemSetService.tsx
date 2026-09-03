@@ -6,42 +6,44 @@ interface ItemSetAssociation {
 }
 
 
-let dataset = [] as Array<ItemSetAssociation>;
-const reverseLookup: { [index: string]: string[] } = {};
+const setNameByRecord = new Map<string, string>();
+const recordsBySetName = new Map<string, string[]>();
 let initialized = false;
 
 export async function initializeItemSetAssociations(): Promise<void> {
   if (initialized) {
     return;
   }
-  console.debug("Fetching item set associations");
+
   const data = await getItemSetAssociations();
-  dataset = JSON.parse(data);
+  const dataset = JSON.parse(data) as ItemSetAssociation[];
   for (const entry of dataset) {
-    if (reverseLookup.hasOwnProperty(entry.setName)) {
-      reverseLookup[entry.setName] = reverseLookup[entry.setName].concat(entry.baseRecord);
+    // First one wins, matching the previous filter(..)[0] lookup.
+    if (!setNameByRecord.has(entry.baseRecord)) {
+      setNameByRecord.set(entry.baseRecord, entry.setName);
+    }
+
+    const members = recordsBySetName.get(entry.setName);
+    if (members) {
+      members.push(entry.baseRecord);
     } else {
-      reverseLookup[entry.setName] = [entry.baseRecord];
+      recordsBySetName.set(entry.setName, [entry.baseRecord]);
     }
   }
+
   initialized = true;
 }
 
 // Returns the set name or undefined
 export default function GetSetName(baseRecord: string): string | undefined {
-  const elems = dataset.filter(elem => elem.baseRecord === baseRecord);
-  if (elems.length > 0) {
-    return elems[0].setName;
-  }
-
-  return undefined;
+  return setNameByRecord.get(baseRecord);
 }
 
-// Returns the items in a given set or undefined
-export function GetSetItems(setName: string|undefined): string[] {
-  if (setName !== undefined) {
-    return reverseLookup[setName];
+// Returns the items in a given set, or an empty list
+export function GetSetItems(setName: string | undefined): string[] {
+  if (setName === undefined) {
+    return [];
   }
 
-  return [];
+  return recordsBySetName.get(setName) ?? [];
 }
