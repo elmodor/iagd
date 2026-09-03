@@ -3,10 +3,14 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Diagnostics;
 using EvilsoftCommons.Exceptions;
 using IAGrim.Utilities;
 using IAGrim.Utilities.Detection;
 using log4net;
+using IAGrim.Linux;
+using IAGrim.Overwrites.LinuxConfig;
+using System.Runtime.InteropServices;
 
 namespace IAGrim.Services {
     /// <summary>
@@ -38,11 +42,11 @@ namespace IAGrim.Services {
             var report = Build();
 
             try {
-                var path = Path.Combine(GlobalPaths.CoreFolder, "iagd-diagnostics.txt");
+                var path = Path.Combine(LinuxConfig.DataDirectory, "iagd-diagnostics.txt");
                 File.WriteAllText(path, report);
 
                 try {
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true });
+                    Process.Start(new ProcessStartInfo{FileName = path, UseShellExecute = true});
                 }
                 catch (Exception ex) {
                     // No file association, or no desktop session to open one in. The path still gets reported.
@@ -88,27 +92,28 @@ namespace IAGrim.Services {
             Item("Generated", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
 
             Section("Environment");
-            Item("OS", Environment.OSVersion);
+            Item("OS", RuntimeInformation.OSDescription);
+            Item("Architecture", RuntimeInformation.OSArchitecture);
+            Item("Process Architecture", RuntimeInformation.ProcessArchitecture);
+            Item("Kernel", Environment.OSVersion.VersionString);
             Item(".NET", Environment.Version);
             Item("Machine name", Environment.MachineName);
-            Item("Running under Wine", WineDetector.IsRunningInWine() ? "yes" : "no");
-            Item("Wine version", WineDetector.GetWineVersion());
-            Item("Launched by Proton", ProtonPaths.IsRunningUnderProton ? "yes" : "no");
-            Item("Steam root", ProtonPaths.SteamRoot);
-            Item("Prefix (compatdata)", ProtonPaths.CompatData);
-            Item("Game folder (Proton)", ProtonPaths.GameInstallDir);
 
-            Section("WebView2");
-            Item("Runtime version", WebView2Runtime.InstalledVersion);
-            Item("Cache folder", SafeGet(() => GlobalPaths.EdgeCacheLocation));
+            Section("WebViewGtk");
+            Item("Runtime version", WebKitGtkInterop.Version);
 
             Section("Paths");
-            Item("Settings file", SafeGet(() => GlobalPaths.SettingsFile));
-            Item("Data folder", SafeGet(() => GlobalPaths.CoreFolder));
-            Item("Item queue", SafeGet(() => GlobalPaths.CsvLocation));
-            Item("Replica (to IA)", SafeGet(() => GlobalPaths.CsvReplicaReadLocation));
-            Item("Replica (from IA)", SafeGet(() => GlobalPaths.CsvReplicaWriteLocation));
-            Item("Wine bridge", SafeGet(() => GlobalPaths.LinuxHack));
+            Item("Settings file", SafeGet(() => LinuxConfig.ConfigDirectory));
+            Item("Data folder", SafeGet(() => LinuxConfig.DataDirectory));
+            if (GlobalPaths.HasGrimDawnWineUserProfilePath) {
+                Item("Item queue", SafeGet(() => GlobalPaths.CsvLocation));
+                Item("Replica (to IA)", SafeGet(() => GlobalPaths.CsvReplicaReadLocation));
+                Item("Replica (from IA)", SafeGet(() => GlobalPaths.CsvReplicaWriteLocation));
+                Item("Wine bridge", SafeGet(() => GlobalPaths.LinuxHack));
+            }
+            else {
+                Item("Wine User Prefix", "Wine user profile path is not configured");
+            }
 
             AppendHookFiles(sb, Section, Item);
             AppendGrimDawnLocations(sb, Section, Item);
@@ -120,19 +125,20 @@ namespace IAGrim.Services {
         private static void AppendHookFiles(StringBuilder sb, Action<string> section, Action<string, object?> item) {
             section("Hook and injector");
 
-            foreach (var filename in new[] { "ItemAssistantHook_x64.dll", "DllInjector64.exe", "Listdlls.exe" }) {
-                var path = Path.Combine(AppContext.BaseDirectory, filename);
+            foreach (var filename in new[] { "ItemAssistantHook_x64.dll", "winmm.dll" }) {
+                var path = Path.Combine(AppContext.BaseDirectory, "Hook", filename);
                 if (!File.Exists(path)) {
                     item(filename, "MISSING");
                     continue;
                 }
 
-                var version = SafeGet(() => System.Diagnostics.FileVersionInfo.GetVersionInfo(path).FileVersion);
-                item(filename, string.IsNullOrEmpty(version) ? "present" : $"present, version {version}");
+                // var version = SafeGet(() => System.Diagnostics.FileVersionInfo.GetVersionInfo(path).FileVersion);
+                // item(filename, string.IsNullOrEmpty(version) ? "present" : $"present, version {version}");
+                item(filename, "present");
             }
 
-            var versionFile = Path.Combine(AppContext.BaseDirectory, "dllver.txt");
-            item("dllver.txt", File.Exists(versionFile) ? SafeGet(() => File.ReadAllText(versionFile).Trim()) : "MISSING");
+            // var versionFile = Path.Combine(AppContext.BaseDirectory, "dllver.txt");
+            // item("dllver.txt", File.Exists(versionFile) ? SafeGet(() => File.ReadAllText(versionFile).Trim()) : "MISSING");
         }
 
         private static void AppendGrimDawnLocations(StringBuilder sb, Action<string> section, Action<string, object?> item) {
@@ -169,11 +175,13 @@ namespace IAGrim.Services {
                 item("isRunningInWine", ReadSettingsFlag(settingsFile, "isRunningInWine"));
             }
 
-            CountFiles(item, "Wine bridge messages", () => GlobalPaths.LinuxHack, "*.msg");
-            CountFiles(item, "Injection markers", () => GlobalPaths.LinuxHack, "*.PID");
-            CountFiles(item, "Aborted attaches", () => GlobalPaths.LinuxHack, "*.ABORTED");
-            CountFiles(item, "Queued loot files", () => GlobalPaths.CsvLocationIngoing, "*.csv");
-            CountFiles(item, "Queued transfers", () => GlobalPaths.CsvLocationOutgoing, "*.csv");
+            if (GlobalPaths.HasGrimDawnWineUserProfilePath) {
+                CountFiles(item, "Wine bridge messages", () => GlobalPaths.LinuxHack, "*.msg");
+                CountFiles(item, "Injection markers", () => GlobalPaths.LinuxHack, "*.PID");
+                CountFiles(item, "Aborted attaches", () => GlobalPaths.LinuxHack, "*.ABORTED");
+                CountFiles(item, "Queued loot files", () => GlobalPaths.CsvLocationIngoing, "*.csv");
+                CountFiles(item, "Queued transfers", () => GlobalPaths.CsvLocationOutgoing, "*.csv");
+            }
         }
 
         private static void CountFiles(Action<string, object?> item, string label, Func<string> folder, string pattern) {
