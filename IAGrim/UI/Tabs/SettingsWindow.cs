@@ -170,18 +170,16 @@ namespace IAGrim.UI.Tabs {
 
         private void linkSourceCode_Click(object? sender, RoutedEventArgs e)
         {
-            // TODO
-            // Process.Start(new ProcessStartInfo{FileName = "https://github.com/marius00/iagd", UseShellExecute = true});
+            Process.Start(new ProcessStartInfo{FileName = "https://github.com/elmodor/iagd", UseShellExecute = true});
         }
 
         private async void copyToolStripMenuItemSourceCode_Click(object? sender, RoutedEventArgs e) {
             var topLevel = TopLevel.GetTopLevel(this);
             var clipboard = topLevel?.Clipboard;
             if (clipboard != null) {
-                // TODO
-                // var data = new DataTransfer();
-                // data.Add(DataTransferItem.CreateText("https://github.com/marius00/iagd"));
-                // await clipboard.SetDataAsync(data);
+                var data = new DataTransfer();
+                data.Add(DataTransferItem.CreateText("https://github.com/elmodor/iagd"));
+                await clipboard.SetDataAsync(data);
                 _ = TooltipHelper.ShowTooltipForControl( RuntimeSettings.Language!.GetTag("iatag_ui_copiedclipboard"), linkSourceCode, TooltipHelper.TooltipLocation.TOP);
             }
         }

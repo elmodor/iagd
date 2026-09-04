@@ -42,8 +42,7 @@
     <AssemblyName>IAGrim</AssemblyName>
     <PackageProjectUrl>https://grimdawn.evilsoft.net</PackageProjectUrl>
     <PackageIcon>gd.png</PackageIcon>
-    <!-- TODO -->
-    <RepositoryUrl>https://github.com/marius00/iagd/</RepositoryUrl>
+    <RepositoryUrl>https://github.com/elmodor/iagd/</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 

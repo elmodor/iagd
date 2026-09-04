@@ -33,8 +33,7 @@ namespace IAGrim.Utilities {
 
         private readonly DateTime _startupTime = DateTime.UtcNow;
 
-        // TODO change url
-        private const string Url = "https://api.github.com/repos/marius00/iagd/releases/latest";
+        private const string Url = "https://api.github.com/repos/elmodor/iagd/releases/latest";
 
         private class GitHubAsset {
             [JsonProperty("browser_download_url")]
