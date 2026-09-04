@@ -10,10 +10,6 @@
         Icon="../gd.png">
 
     <Grid RowDefinitions="Auto,*,Auto">
-        <Border Grid.Row="0" Background="#222" Padding="10">
-            <TextBlock Text="Grim Dawn Item Assistant" Foreground="White" FontSize="12"/>
-        </Border>
-
         <Grid Grid.Row="1" RowDefinitions="Auto,*">
             <TabStrip x:Name="MainTabStrip">
                 <TabStripItem Tag="iatag_ui_tab_items">Items</TabStripItem>
