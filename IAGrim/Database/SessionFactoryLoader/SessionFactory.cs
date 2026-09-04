@@ -4,6 +4,8 @@ using NHibernate.Tool.hbm2ddl;
 using log4net;
 using EvilsoftCommons;
 using IAGrim.Utilities;
+using System.IO;
+using IAGrim.Database;
 
 namespace SessionFactoryLoader {
     public class SessionFactory : ISessionFactoryWrapper {
@@ -24,7 +26,7 @@ namespace SessionFactoryLoader {
 #endif
 
             ConnectionString = configuration.GetProperty("connection.connection_string");
-            ConnectionString = ConnectionString.Replace("{appdata}", GlobalPaths.UserdataFolder + @"\");
+            ConnectionString = ConnectionString.Replace("{appdata}", GlobalPaths.UserdataFolder + Path.DirectorySeparatorChar);
             ConnectionString = ConnectionString.Replace("{db}", db);
             configuration.SetProperty("connection.connection_string", ConnectionString);
 
@@ -47,7 +49,8 @@ namespace SessionFactoryLoader {
         private ISessionFactory sessionFactory {
             get {
                 if (_sessionFactory == null) {
-                    _sessionFactory = CreateSessionFactory("hibernate.sqlite.cfg.xml");
+                    var configPath = Path.Combine(AppContext.BaseDirectory, "hibernate.sqlite.cfg.xml");
+                    _sessionFactory = CreateSessionFactory(configPath);
                 }
                 return _sessionFactory;
             }

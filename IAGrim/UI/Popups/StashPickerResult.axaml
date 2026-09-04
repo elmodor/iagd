@@ -1,0 +1,35 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="IAGrim.UI.Popups.StashTabPicker"
+        Title="Advanced Settings - Stash Configuration"
+        Tag="iatag_ui_stashtabpicker"
+        Width="458"
+        Height="318"
+        MinWidth="458"
+        MinHeight="318"
+        CanResize="False"
+        ShowInTaskbar="False"
+        Opened="StashTabPicker_Load">
+
+    <Border BorderBrush="{DynamicResource IAGrimWindowBorder}" BorderThickness="1">
+    <Grid RowDefinitions="*,Auto,Auto" Margin="12">
+        <Grid Grid.Row="0" ColumnDefinitions="*,*" ColumnSpacing="17">
+            <GroupBox x:Name="gbMoveTo" Grid.Column="0" Tag="iatag_ui_group_move_items_to" Header="Move items to" Height="248">
+                <StackPanel x:Name="moveToPanel" Margin="6">
+                    <RadioButton x:Name="radioOutputSecondToLast" Tag="iatag_ui_tab_secondtolast" Content="Second to last tab" IsChecked="False" IsCheckedChanged="radioOutputSecondToLast_CheckedChanged" />
+                </StackPanel>
+            </GroupBox>
+            <GroupBox x:Name="gbLootFrom" Grid.Column="1" Tag="iatag_ui_group_loot_items_from" Header="Loot items from" Height="248">
+                <Grid>
+                    <StackPanel x:Name="lootFromPanel" Margin="6">
+                        <RadioButton x:Name="radioInputLast" Tag="iatag_ui_tab_lasttab" Content="Last tab" IsChecked="False" IsCheckedChanged="radioInputLast_CheckedChanged" />
+                    </StackPanel>
+                    <TextBlock x:Name="helpWhyAreTheseDisabled" Text="Why are these disabled?" Tag="iatag_ui_missing_stash_tabs" FontSize="8.25" HorizontalAlignment="Right" VerticalAlignment="Top" Cursor="Hand" PointerPressed="helpWhyAreTheseDisabled_LinkClicked" />
+                </Grid>
+            </GroupBox>
+        </Grid>
+        <TextBlock x:Name="label1" Grid.Row="1" Margin="0,4,0,4" Tag="iatag_ui_swapstashwarning" Foreground="Firebrick" Text="Changes to &quot;Loot items from&quot; may require restarting Grim Dawn" />
+        <Button x:Name="buttonClose" Grid.Row="2" Tag="iatag_ui_button_close" Content="Close" HorizontalAlignment="Stretch" Click="buttonClose_Click" />
+    </Grid>
+    </Border>
+</Window>

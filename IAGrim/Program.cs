@@ -1,77 +1,81 @@
-using EvilsoftCommons.Exceptions;
+﻿using Avalonia;
+using System;
+using System.Reflection;
 using EvilsoftCommons.SingleInstance;
+using EvilsoftCommons.Exceptions;
 using IAGrim.Backup.Cloud;
+using IAGrim.Services;
+using IAGrim.Settings;
+using IAGrim.Utilities;
+using StatTranslator;
+using log4net;
+using log4net.Config;
+using log4net.Appender;
+
 using IAGrim.Database;
 using IAGrim.Database.Interfaces;
 using IAGrim.Database.Migrations;
-using IAGrim.Parsers.GameDataParsing.Service;
-using IAGrim.Services;
-using IAGrim.Settings;
-using IAGrim.StashFile;
-using IAGrim.UI;
-using IAGrim.UI.Misc.CEF;
-using IAGrim.Utilities;
-using IAGrim.Utilities.HelperClasses;
-using log4net;
-using log4net.Config;
 using NHibernate.SqlCommand;
-using StatTranslator;
-using System.Reflection;
+using IAGrim.Parsers.GameDataParsing.Service;
+using IAGrim.Overwrites.MessageBox;
+using IAGrim.Overwrites.LinuxConfig;
 
-namespace IAGrim
+namespace IAGrim.Linux;
+
+class Program
 {
-    internal static class Program {
-        private static readonly ILog Logger = LogManager.GetLogger(typeof(Program));
-        private static MainWindow? _mw;
-        private static readonly StartupService StartupService = new StartupService();
+    private static readonly ILog Logger = LogManager.GetLogger(typeof(Program));
+    private static readonly StartupService StartupService = new StartupService();
 
-        private static void LoadUuid(SettingsService settings) {
-            var uuid = settings.GetPersistent().UUID;
+    private static void LoadUuid(SettingsService settings) {
+        var uuid = settings.GetPersistent().UUID;
 
-            if (string.IsNullOrEmpty(uuid)) {
-                uuid = Guid.NewGuid().ToString().Replace("-", "");
-                settings.GetPersistent().UUID = uuid;
-            }
-
-            RuntimeSettings.Uuid = uuid;
-            ExceptionReporter.Uuid = uuid;
+        if (string.IsNullOrEmpty(uuid)) {
+            uuid = Guid.NewGuid().ToString().Replace("-", "");
+            settings.GetPersistent().UUID = uuid;
         }
 
-        public static MainWindow? MainWindow => _mw;
+        RuntimeSettings.Uuid = uuid;
+        ExceptionReporter.Uuid = uuid;
+    }
 
+    // Initialization code. Don't use any Avalonia, third-party APIs or any
+    // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
+    // yet and stuff might break.
+    [STAThread]
+    public static void Main(string[] args) {
+        if (Thread.CurrentThread.Name == null) {
+            Thread.CurrentThread.Name = "Main";
+            Thread.CurrentThread.CurrentUICulture = new System.Globalization.CultureInfo("en-US");
+        }
 
-        /// <summary>
-        ///  The main entry point for the application.
-        /// </summary>
-        [STAThread]
-        static void Main(string[] args) {
-            if (Thread.CurrentThread.Name == null) {
-                Thread.CurrentThread.Name = "Main";
-                Thread.CurrentThread.CurrentUICulture = new System.Globalization.CultureInfo("en-US");
+        var logDirectory = Path.Combine(LinuxConfig.DataDirectory, "logs");
+        Directory.CreateDirectory(logDirectory);
+        var configPath = Path.Combine(AppContext.BaseDirectory, "Log4net.config");
+        var logRepository = LogManager.GetRepository(Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly());
+        XmlConfigurator.Configure(logRepository, new FileInfo(configPath));
+        foreach (var appender in logRepository.GetAppenders()) {
+            if (appender is FileAppender fileAppender) {
+                fileAppender.File = Path.Combine(logDirectory, "log.txt");
+                fileAppender.ActivateOptions();
             }
+        }
 
-            var logRepository = LogManager.GetRepository(Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly());
-            XmlConfigurator.Configure(logRepository, new FileInfo("log4net.config"));
+        Logger.Info("Starting IA:GD Linux..");
+        // TODO
+        // ExceptionReporter.UrlStats = "https://webstats.evilsoft.net/report/iagd";
+        SQLitePCL.Batteries.Init();
 
+        // To customize application configuration such as set high DPI settings or default font,
+        // see https://aka.ms/applicationconfiguration.
+        // ApplicationConfiguration.Initialize();
 
-            Logger.Info("Starting IA:GD..");
-            ExceptionReporter.UrlStats = "https://webstats.evilsoft.net/report/iagd";
-            SQLitePCL.Batteries.Init();
+        Logger.Info("Starting exception monitor for bug reports..");
+        Logger.Debug("Anonymous usage statistics can be seen at https://webstats.evilsoft.net/iagd");
+        ExceptionReporter.EnableLogUnhandledOnThread();
 
-
-            // To customize application configuration such as set high DPI settings or default font,
-            // see https://aka.ms/applicationconfiguration.
-            ApplicationConfiguration.Initialize();
-
-
-            Logger.Info("Starting exception monitor for bug reports..");
-            Logger.Debug("Anonymous usage statistics can be seen at https://webstats.evilsoft.net/iagd");
-            ExceptionReporter.EnableLogUnhandledOnThread();
-
-            Uris.Initialize(Uris.EnvCloud);
-            StartupService.Init();
-
-
+        Uris.Initialize(Uris.EnvCloud);
+        StartupService.Init();
 
 #if DEBUG
             Uris.Initialize(Uris.EnvLocalDev);
@@ -86,209 +90,160 @@ namespace IAGrim
             }
 #endif
 
-            ItemHtmlWriter.CopyMissingFiles();
+        ItemHtmlWriter.CopyMissingFiles();
 
-            Guid guid = new Guid("{F3693953-C090-4F93-86A2-B98AB96A9368}");
-            var safeMode = StartupService.IsSafeMode(args);
-            using (SingleInstance singleInstance = new SingleInstance(guid)) {
-                if (singleInstance.IsFirstInstance) {
-                    Logger.Info("Calling run..");
-                    singleInstance.ListenForArgumentsFromSuccessiveInstances();
-                    Application.EnableVisualStyles();
-                    Application.SetCompatibleTextRenderingDefault(false);
-                    Logger.Info("Visual styles enabled..");
-                    Run(args);
-                }
-                else {
-                    // Nothing listens for arguments from successive instances, so a safe mode reset here would just be overwritten by the running instance when it stores its window position on exit.
-                    if (safeMode) {
-                        Logger.Info("Safe mode requested, but IA is already running.");
-                        MessageBox.Show(
-                            "Item Assistant is already running, look for the icon in the system tray next to the clock.\n\n"
-                            + "Close the running instance and then start safe mode again.",
-                            "Item Assistant is already running", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-
-                    // Ask the running instance to show itself, otherwise starting IA a second time looks like
-                    // nothing happened at all: the window may well be hidden away in the system tray.
-                    ShowExistingInstanceMessage.Notify();
-
-                    Logger.Info("Already has an instance of IA Running, exiting..");
-                }
+        Guid guid = new Guid("{F3693953-C090-4F93-86A2-B98AB96A9368}");
+        var safeMode = StartupService.IsSafeMode(args);
+        using (SingleInstance singleInstance = new SingleInstance(guid)) {
+            if (singleInstance.IsFirstInstance) {
+                Logger.Info("Calling run..");
+                singleInstance.ListenForArgumentsFromSuccessiveInstances();
+                // Application.EnableVisualStyles();
+                // Application.SetCompatibleTextRenderingDefault(false);
+                Logger.Info("Visual styles enabled..");
+                Run(args);
             }
-
-            Logger.Info("IA Exited");
-            LogManager.Shutdown();
-            System.Environment.Exit(0);
-
-
-        }
-
-        private static void DumpTranslationTemplate() {
-            try {
-                var translationsDir = Path.Combine(AppContext.BaseDirectory, @"..\..\..\..\IAGrim\Resources\translations");
-                translationsDir = Path.GetFullPath(translationsDir);
-                if (!Directory.Exists(translationsDir)) {
-                    Logger.Debug($"Translations directory not found: {translationsDir}");
-                    return;
+            else {
+                // Nothing listens for arguments from successive instances, so a safe mode reset here would just be overwritten by the running instance when it stores its window position on exit.
+                if (safeMode) {
+                    Logger.Info("Safe mode requested, but IA is already running.");
+                    MessageBox.Show(
+                        "Item Assistant is already running, look for the icon in the system tray next to the clock.\n\n"
+                        + "Close the running instance and then start safe mode again.",
+                        "Item Assistant is already running", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
 
-                var english = new EnglishLanguage(new Dictionary<string, string>());
-                var englishEntries = english.Stats;
+                // Ask the running instance to show itself, otherwise starting IA a second time looks like
+                // nothing happened at all: the window may well be hidden away in the system tray.
+                // TODO
+                // ShowExistingInstanceMessage.Notify();
+                MessageBox.Show(
+                    "Item Assistant is already running, look for the icon in the system tray next to the clock.",
+                    "Item Assistant is already running", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                foreach (var filePath in Directory.GetFiles(translationsDir, "*.txt")) {
-                    var lines = File.ReadAllLines(filePath).ToList();
-                    var existingKeys = new HashSet<string>();
-
-                    foreach (var line in lines) {
-                        var trimmed = line.Trim();
-                        if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith("#"))
-                            continue;
-
-                        var eqIndex = trimmed.IndexOf('=');
-                        if (eqIndex > 0) {
-                            existingKeys.Add(trimmed.Substring(0, eqIndex));
-                        }
-                    }
-
-                    var missingKeys = englishEntries.Keys
-                        .Where(k => !existingKeys.Contains(k))
-                        .OrderBy(k => k)
-                        .ToList();
-
-                    if (missingKeys.Count > 0) {
-                        lines.Add("");
-                        lines.Add("# Missing translations (English defaults)");
-                        foreach (var key in missingKeys) {
-                            lines.Add($"{key}={englishEntries[key].Replace("\n", "\\n")}");
-                        }
-
-                        File.WriteAllLines(filePath, lines);
-                        Logger.Debug($"Added {missingKeys.Count} missing keys to {Path.GetFileName(filePath)}");
-                    }
-                }
-            }
-            catch (Exception ex) {
-                Logger.Debug("Error syncing translation files", ex);
+                Logger.Info("Already has an instance of IA Running, exiting..");
             }
         }
 
-        private static void Run(string[] args) {
-            var startupTimer = System.Diagnostics.Stopwatch.StartNew();
-            void Timed(string step) {
-                Logger.Info($"[timing] {step} took {startupTimer.ElapsedMilliseconds} ms");
-                startupTimer.Restart();
+        Logger.Info("IA Exited");
+        LogManager.Shutdown();
+        System.Environment.Exit(0);
+    }
+
+    private static void DumpTranslationTemplate() {
+        try {
+            var translationsDir = Path.Combine(AppContext.BaseDirectory, "Resources/translations");
+            translationsDir = Path.GetFullPath(translationsDir);
+            Logger.Debug($"Translations directory: {translationsDir}");
+            if (!Directory.Exists(translationsDir)) {
+                Logger.Debug($"Translations directory not found: {translationsDir}");
+                return;
             }
 
-            var factory = new SessionFactory();
-            Logger.Debug("Executing DB migrations..");
-            new MigrationHandler(factory).Migrate();
-            Timed("DB migrations");
+            var english = new EnglishLanguage(new Dictionary<string, string>());
+            var englishEntries = english.Stats;
 
-            var serviceProvider = ServiceProvider.Initialize();
-            Timed("ServiceProvider.Initialize");
+            foreach (var filePath in Directory.GetFiles(translationsDir, "*.txt")) {
+                var lines = File.ReadAllLines(filePath).ToList();
+                var existingKeys = new HashSet<string>();
 
-            var settingsService = serviceProvider.Get<SettingsService>();
-
-            // Must happen before the main window is created, it reads these settings on construction.
-            if (StartupService.IsSafeMode(args)) {
-                StartupService.ResetWindowSettings(settingsService);
-                Timed("Safe mode reset");
-            }
-
-            var databaseItemDao = serviceProvider.Get<IDatabaseItemDao>();
-            RuntimeSettings.InitializeLanguage(settingsService.GetLocal().LanguageCode, databaseItemDao.GetTagDictionary());
-            Timed("InitializeLanguage");
-#if DEBUG
-            DumpTranslationTemplate();
-            Timed("DumpTranslationTemplate");
-#endif
-
-            Logger.Debug("Loading UUID");
-            LoadUuid(settingsService);
-            Timed("LoadUuid");
-
-            // Persist Wine detection so the injected DLL can read it from the settings file
-            settingsService.GetPersistent().IsRunningInWine = WineDetector.IsRunningInWine();
-            Logger.Info($"Wine detection: {settingsService.GetPersistent().IsRunningInWine}");
-
-
-            var itemTagDao = serviceProvider.Get<IItemTagDao>();
-            var databaseItemStatDao = serviceProvider.Get<IDatabaseItemStatDao>();
-            var itemSkillDao = serviceProvider.Get<IItemSkillDao>();
-            ParsingService parsingService = new ParsingService(itemTagDao, string.Empty, databaseItemDao, databaseItemStatDao, itemSkillDao, settingsService.GetLocal().LanguageCode);
-
-            // Before the main window exists: this is modal, and it may reload the language.
-            var grimDawnDetector = serviceProvider.Get<GrimDawnDetector>();
-            var autoParsed = StartupService.PerformMissingExpansionDataCheck(
-                parsingService,
-                databaseItemDao,
-                serviceProvider.Get<IPlayerItemDao>(),
-                grimDawnDetector,
-                settingsService
-            );
-            Timed("PerformMissingExpansionDataCheck");
-
-            // Only if the parse above didn't already run, it parses in the current language anyway.
-            if (!autoParsed) {
-                autoParsed = StartupService.PerformLanguageChangeCheck(
-                    parsingService,
-                    databaseItemDao,
-                    serviceProvider.Get<IPlayerItemDao>(),
-                    grimDawnDetector,
-                    settingsService
-                );
-                Timed("PerformLanguageChangeCheck");
-            }
-
-            StartupService.PrintStartupInfo(factory, settingsService);
-
-            // TODO: Offload to the new language loader
-            if (RuntimeSettings.Language is EnglishLanguage language) {
-                foreach (var tag in itemTagDao.GetClassItemTags()) {
-                    if (tag.Tag == null || tag.Name == null) {
+                foreach (var line in lines) {
+                    var trimmed = line.Trim();
+                    if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith("#"))
                         continue;
+
+                    var eqIndex = trimmed.IndexOf('=');
+                    if (eqIndex > 0) {
+                        existingKeys.Add(trimmed.Substring(0, eqIndex));
                     }
-                    language.SetTagIfMissing(tag.Tag, tag.Name);
+                }
+
+                var missingKeys = englishEntries.Keys
+                    .Where(k => !existingKeys.Contains(k))
+                    .OrderBy(k => k)
+                    .ToList();
+
+                if (missingKeys.Count > 0) {
+                    lines.Add("");
+                    lines.Add("# Missing translations (English defaults)");
+                    foreach (var key in missingKeys) {
+                        lines.Add($"{key}={englishEntries[key].Replace("\n", "\\n")}");
+                    }
+
+                    File.WriteAllLines(filePath, lines);
+                    Logger.Debug($"Added {missingKeys.Count} missing keys to {Path.GetFileName(filePath)}");
                 }
             }
-
-
-            _mw = new MainWindow(
-                serviceProvider,
-                parsingService
-            );
-
-            Logger.Info("Checking for database updates..");
-
-            // An automatic parse already queued a full icon extraction, no need to scan the arc files twice.
-            if (!autoParsed) {
-                StartupService.PerformIconCheck(grimDawnDetector, settingsService);
-            }
-
-
-            if (settingsService.GetPersistent().DarkMode) {
-                Application.SetColorMode(SystemColorMode.Dark);
-            }
-            _mw.Visible = false;
-            if (new DonateNagScreen(settingsService).CanNag)
-                Application.Run(new DonateNagScreen(settingsService));
-
-            Logger.Info("Running the main application..");
-
-
-            StartupService.PerformGrimUpdateCheck(settingsService);
-
-            // Self-heal a WAL that bloated from a previous unclean shutdown (e.g. a crash or the
-            // debugger being stopped). Runs off the UI thread so it never delays the window.
-            System.Threading.Tasks.Task.Run(() => factory.Checkpoint());
-
-            Application.Run(_mw);
-
-            // Truncate the WAL back into the main db on a clean exit so the next launch starts fast.
-            factory.Checkpoint();
-
-            Logger.Info("Application ended.");
+        }
+        catch (Exception ex) {
+            Logger.Debug("Error syncing translation files", ex);
         }
     }
+
+    private static void Run(string[] args) {
+        var startupTimer = System.Diagnostics.Stopwatch.StartNew();
+        void Timed(string step) {
+            Logger.Info($"[timing] {step} took {startupTimer.ElapsedMilliseconds} ms");
+            startupTimer.Restart();
+        }
+
+        var factory = new SessionFactory();
+        Logger.Debug("Executing DB migrations..");
+        new MigrationHandler(factory).Migrate();
+        Timed("DB migrations");
+
+        var serviceProvider = ServiceProvider.Initialize();
+        Timed("ServiceProvider.Initialize");
+
+        var settingsService = serviceProvider.Get<SettingsService>();
+
+        // Must happen before the main window is created, it reads these settings on construction.
+        if (StartupService.IsSafeMode(args)) {
+            StartupService.ResetWindowSettings(settingsService);
+            Timed("Safe mode reset");
+        }
+
+        var databaseItemDao = serviceProvider.Get<IDatabaseItemDao>();
+        RuntimeSettings.InitializeLanguage(settingsService.GetLocal().LanguageCode, databaseItemDao.GetTagDictionary());
+        Timed("InitializeLanguage");
+#if DEBUG
+        DumpTranslationTemplate();
+        Timed("DumpTranslationTemplate");
+#endif
+
+        Logger.Debug("Loading UUID");
+        LoadUuid(settingsService);
+        Timed("LoadUuid");
+        startupTimer.Stop();
+
+        App.StartupContext = new AppStartupContext {
+            ServiceProvider = serviceProvider
+        };
+
+        StartupService.PrintStartupInfo(factory, settingsService);
+
+        // Self-heal a WAL that bloated from a previous unclean shutdown (e.g. a crash or the
+        // debugger being stopped). Runs off the UI thread so it never delays the window.
+        System.Threading.Tasks.Task.Run(() => factory.Checkpoint());
+
+        // Application.Run(_mw);
+
+        BuildAvaloniaApp()
+            .StartWithClassicDesktopLifetime(args);
+
+        // Truncate the WAL back into the main db on a clean exit so the next launch starts fast.
+        factory.Checkpoint();
+
+        Logger.Info("Application ended.");
+    }
+
+    // Avalonia configuration, don't remove; also used by visual designer.
+    public static AppBuilder BuildAvaloniaApp()
+        => AppBuilder.Configure<App>()
+            .UsePlatformDetect()
+#if DEBUG
+            .WithDeveloperTools()
+#endif
+            .WithInterFont()
+            .LogToTrace();
 }

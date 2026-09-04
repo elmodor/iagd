@@ -1,9 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Windows.Forms;
+using Avalonia.Controls;
 using IAGrim.Database;
+using IAGrim.Theme;
 
 namespace IAGrim.UI.Filters {
     public partial class Classes : UserControl {
@@ -14,28 +13,17 @@ namespace IAGrim.UI.Filters {
             InitializeComponent();
             _classes = new Dictionary<string, FirefoxCheckBox>();
             _classTags = classTags;
-            Load += Classes_Load;
+            Classes_Load();
         }
 
         public List<string> DesiredClasses {
             get {
-                return _classes.Keys.Where(key => _classes[key].Checked).ToList();
+                return _classes.Where(x => x.Value.IsChecked == true).Select(x => x.Key).ToList();
             }
         }
 
-        public void Classes_Load(object? sender, EventArgs e) {
-            // 3,4+n*33
-            // 3,37
-            // 3,70
-            var cbNum = 1;
-
-            // Handle hardcoded classes
-            foreach (var c in classesPanelBox.Controls) {
-                if (c is FirefoxCheckBox cb) {
-                    cbNum++;
-                }
-            }
-
+        private void Classes_Load()
+        {
             // TODO: Localize hardcoded classes and skip adding them if they exist
             _classes["class01"] = cbSoldier;
             _classes["class02"] = cbDemolitionist;
@@ -53,33 +41,22 @@ namespace IAGrim.UI.Filters {
                 "class01", "class02", "class03", "class04", "class05",
                 "class06", "class07", "class08", "class09", "class10"
             };
-            int yOffsetHeight = cbDemolitionist.Location.Y - cbSoldier.Location.Y;
-            int cbHeight = cbDemolitionist.Height;
 
             foreach (var tag in _classTags) {
                 var translationTag = $"{(tag.Tag ?? string.Empty).ToLowerInvariant()}";
 
                 if (!prefilled.Contains(translationTag)) {
                     var cb = new FirefoxCheckBox {
-                        Size = new Size {Height = cbHeight, Width = classesPanelBox.Size.Width - 15},
-                        Tag = translationTag,
-                        Text = tag.Name,
-                        Location = new Point {X = 3, Y = 3 + cbNum * yOffsetHeight}
+                        Content = tag.Name
                     };
 
                     _classes[translationTag] = cb;
-                    classesPanelBox.Controls.Add(cb);
-                    cbNum++;
+                    classesPanelBox.Children.Add(cb);
                 }
                 else if (_classes.ContainsKey(translationTag)) {
-                    _classes[translationTag].Text = tag.Name;
+                    _classes[translationTag].Content = tag.Name;
                 }
             }
-
-            classesPanelBox.Size = new Size {
-                Height = 10 + cbNum * yOffsetHeight,
-                Width = classesPanelBox.Size.Width
-            };
         }
     }
 }

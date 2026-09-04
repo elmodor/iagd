@@ -1,0 +1,16 @@
+<Window
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:Class="IAGrim.Overwrites.CloudLogin.CloudLoginWindow"
+    Title="Login"
+    Width="900"
+    Height="700"
+    WindowStartupLocation="CenterOwner"
+    CanResize="False">
+
+    <Border BorderBrush="{DynamicResource IAGrimWindowBorder}" BorderThickness="1">
+    <Grid>
+        <ContentControl x:Name="WebViewHost" />
+    </Grid>
+    </Border>
+</Window>

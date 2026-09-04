@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include <set>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,8 +10,8 @@ GameEngineUpdate* GameEngineUpdate::g_self;
 void GameEngineUpdate::EnableHook() {
 	originalMethod = (OriginalMethodPtr)HookGame(
 		"?Update@GameEngine@GAME@@QEAAXH@Z",
-		HookedMethod,
-		m_dataQueue,
+		reinterpret_cast<void*>(HookedMethod),
+      m_dataQueue,
 		m_hEvent,
 		TYPE_GAMEENGINE_UPDATE
 	);
@@ -26,10 +25,6 @@ GameEngineUpdate::GameEngineUpdate(DataQueue* dataQueue, HANDLE hEvent) {
 
 GameEngineUpdate::GameEngineUpdate() {
 	GameEngineUpdate::m_hEvent = nullptr;
-}
-
-void GameEngineUpdate::DisableHook() {
-	Unhook((PVOID*)&originalMethod, HookedMethod);
 }
 
 //typedef bool(__thiscall* IsGameLoadingPtr)(void* This);

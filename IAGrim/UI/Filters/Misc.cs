@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Drawing;
-using System.Data;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
+﻿using Avalonia.Controls;
 using IAGrim.Services.ItemStats;
+using IAGrim.Theme;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace IAGrim.UI.Filters {
     public partial class Misc : UserControl {
@@ -18,9 +13,6 @@ namespace IAGrim.UI.Filters {
             cbOffensive.SupportsNumericFilter = true;
         }
 
-        public void Misc_Load(object sender, EventArgs e) {
-            miscPanel.ToggleState();
-        }
 
         // The three Misc stats that expose a numeric filter button, paired with the same fields their
         // "stat exists" entries use in Filters below.
@@ -30,97 +22,95 @@ namespace IAGrim.UI.Filters {
             (cbOffensive, new[] { "characterOffensiveAbility", "characterOffensiveAbilityModifier" }),
         });
 
-        public bool SocketedOnly => cbSocketed.Checked;
-        public bool DuplicatesOnly => cbDuplicates.Checked;
-        public bool PetBonuses => cbPetBonuses.Checked;
-        public bool HasPetBonus => cbHasPetBonus.Checked;
-        public bool RecentOnly => cbRecentOnly.Checked;
-        public bool GrantsSkill => cbGrantsSkill.Checked;
-        public bool WithSummonerSkillOnly => cbSummonerSkill.Checked;
-
+        public bool SocketedOnly => cbSocketed.IsChecked == true;
+        public bool DuplicatesOnly => cbDuplicates.IsChecked == true;
+        public bool PetBonuses => cbPetBonuses.IsChecked == true;
+        public bool HasPetBonus => cbHasPetBonus.IsChecked == true;
+        public bool RecentOnly => cbRecentOnly.IsChecked == true;
+        public bool GrantsSkill => cbGrantsSkill.IsChecked == true;
+        public bool WithSummonerSkillOnly => cbSummonerSkill.IsChecked == true;
 
         public List<string[]> Filters {
             get {
                 var filters = new List<string[]>();
 
-                if (setbonus.Checked) {
+                if (setbonus.IsChecked == true) {
                     filters.Add(new[] { "setName", "itemSetName" });
                 }
 
-                if (shieldStuff.Checked) {
+                if (shieldStuff.IsChecked == true) {
                     filters.Add(new[] {
                         "blockAbsorption", "defensiveBlock", "defensiveBlockChance", "defensiveBlockModifier",
                         "defensiveBlockAmountModifier"
                     });
                 }
 
-                if (cbAttackSpeed.Checked) {
+                if (cbAttackSpeed.IsChecked == true) {
                     filters.Add(new[]
                         {"characterAttackSpeedModifier", "characterAttackSpeed", "characterTotalSpeedModifier"});
                 }
 
-                if (cbCastspeed.Checked) {
+                if (cbCastspeed.IsChecked == true) {
                     filters.Add(new[] {"characterSpellCastSpeedModifier", "characterTotalSpeedModifier"});
                 }
 
-                if (cbIncreaseArmor.Checked) {
+                if (cbIncreaseArmor.IsChecked == true) {
                     filters.Add(new[] { "defensiveProtectionModifier" });
                 }
 
-                if (cbRunspeed.Checked) {
+                if (cbRunspeed.IsChecked == true) {
                     filters.Add(new[] {"characterRunSpeedModifier", "characterTotalSpeedModifier"});
                 }
 
-                if (exp.Checked) {
+                if (exp.IsChecked == true) {
                     filters.Add(new[] {"characterIncreasedExperience"});
                 }
 
-                if (cbReflect.Checked) {
+                if (cbReflect.IsChecked == true) {
                     filters.Add(new[] {"defensiveReflect"});
                 }
 
-                if (health.Checked) {
+                if (health.IsChecked == true) {
                     filters.Add(new[] {"characterLifeModifier", "characterLife"});
                 }
 
-                if (cbDefense.Checked) {
+                if (cbDefense.IsChecked == true) {
                     filters.Add(new[] {"characterDefensiveAbilityModifier", "characterDefensiveAbility"});
                 }
 
-                if (cbOffensive.Checked) {
+                if (cbOffensive.IsChecked == true) {
                     filters.Add(new[] {"characterOffensiveAbility", "characterOffensiveAbilityModifier"});
                 }
 
-                if (cbMasterySkills.Checked) {
+                if (cbMasterySkills.IsChecked == true) {
                     filters.Add(new[] {"augmentMastery1", "augmentMastery2"});
                 }
 
-
-                if (cbEnergyRegen.Checked) {
+                if (cbEnergyRegen.IsChecked == true) {
                     filters.Add(new[] {"characterManaRegen", "characterManaRegenModifier"});
                 }
 
-                if (cbWeaponLifeLeech.Checked) {
+                if (cbWeaponLifeLeech.IsChecked == true) {
                     filters.Add(new[] { "offensiveLifeLeechMin" });
                 }
 
-                if (cbDamageConversion.Checked) {
+                if (cbDamageConversion.IsChecked == true) {
                     filters.Add(new[] { "conversionPercentage" });
                 }
 
-                if (cbCooldownReduction.Checked) {
+                if (cbCooldownReduction.IsChecked == true) {
                     filters.Add(new[] { "skillCooldownReduction" });
                 }
 
-                if (cbPhysique.Checked) {
+                if (cbPhysique.IsChecked == true) {
                     filters.Add(new[] { "characterStrength", "characterStrengthModifier" });
                 }
 
-                if (cbSpirit.Checked) {
+                if (cbSpirit.IsChecked == true) {
                     filters.Add(new[] { "characterIntelligence", "characterIntelligenceModifier" });
                 }
 
-                if (cbCunning.Checked) {
+                if (cbCunning.IsChecked == true) {
                     filters.Add(new[] { "characterDexterity", "characterDexterityModifier" });
                 }
 

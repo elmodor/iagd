@@ -1,16 +1,19 @@
-﻿using IAGrim.Utilities;
-using IAGrim.Parsers.Arz;
-using IAGrim.Utilities.HelperClasses;
-using System;
-using System.Drawing;
-using System.Windows.Forms;
-using IAGrim.Services;
-using IAGrim.Database.Interfaces;
+﻿using System;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Media.Imaging;
+using System.IO;
 using IAGrim.Database.Dto;
+using IAGrim.Database.Interfaces;
+using IAGrim.Services;
 using IAGrim.Settings;
+using IAGrim.Utilities;
+using IAGrim.Utilities.HelperClasses;
+using IAGrim.Parsers.Arz;
 
 namespace IAGrim.UI {
-    public partial class StashPicker : Form {
+    public partial class StashPicker : Window {
         private readonly IHelpService _helpService;
         private readonly IPlayerItemDao _playerItemDao;
         private readonly SettingsService _settings;
@@ -19,49 +22,44 @@ namespace IAGrim.UI {
             _playerItemDao = playerItemDao;
             _settings = settings;
             InitializeComponent();
+            Opened += StashPicker_Load;
         }
 
-
-        private void StashPicker_Load(object sender, EventArgs e) {
-            LocalizationLoader.ApplyLanguage(Controls, RuntimeSettings.Language!);
-            int n = 0;
+        private void StashPicker_Load(object? sender, EventArgs e) {
+            LocalizationLoader.ApplyLanguage(this, RuntimeSettings.Language!);
+            var path = Path.Combine(AppContext.BaseDirectory, "Resources", "static", "chest.png");
+            ChestImage.Source = new Bitmap(path);
 
             var target = _settings.GetLocal().LastSelectedTargetMod;
             var isHardcore = _settings.GetLocal().LastSelectedTargetModIsHc;
             foreach (var mod in _playerItemDao.GetModSelection()) {
-                Control cb = new FirefoxRadioButton {
-                    Location = new Point(10, 25 + n*33),
-                    Text = mod.Mod + " (" + (mod.IsHardcore ? "hc" : "sc") + ")",
+                var cb = new RadioButton {
+                    Content = mod.Mod + " (" + (mod.IsHardcore ? "hc" : "sc") + ")",
                     Tag = mod,
-                    Checked = mod.Mod == target && mod.IsHardcore == isHardcore,
+                    IsChecked = mod.Mod == target && mod.IsHardcore == isHardcore,
+                    GroupName = "ModSelection"
                 };
 
-                cb.TabIndex = n;
-                cb.TabStop = true;
-                groupBox1.Controls.Add(cb);
-                n++;
-            }
+                cb.TabIndex = ModSelectionPanel.Children.Count;
+                cb.IsTabStop = true;
 
-            this.Height += n * 33;
+                ModSelectionPanel.Children.Add(cb);
+            }
         }
 
         public StashPickerResult? Result { get; private set; }
 
-        protected override bool ProcessCmdKey(ref Message msg, Keys keyData) {
-            if (keyData == Keys.Enter) {
-                buttonTransfer_Click(this, EventArgs.Empty);
-
-                return true;
+        private void StashPicker_KeyDown(object? sender, KeyEventArgs e) {
+            if (e.Key == Key.Enter) {
+                buttonTransfer_Click(this, new RoutedEventArgs());
+                e.Handled = true;
             }
-
-            return base.ProcessCmdKey(ref msg, keyData);
         }
 
-        private void buttonTransfer_Click(object sender, EventArgs e) {
-
-            foreach (Control c in groupBox1.Controls) {
-                FirefoxRadioButton? cb = c as FirefoxRadioButton;
-                if (cb is { Checked: true }) {
+        private async void buttonTransfer_Click(object? sender, RoutedEventArgs e) {
+            foreach (var c in ModSelectionPanel.Children) {
+                var cb = c as RadioButton;
+                if (cb is { IsChecked: true }) {
                     ModSelection? mod = c.Tag as ModSelection;
                     if (mod != null) {
                         Result = new StashPickerResult {
@@ -70,18 +68,18 @@ namespace IAGrim.UI {
                         };
                         _settings.GetLocal().LastSelectedTargetMod = mod.Mod ?? string.Empty;
                         _settings.GetLocal().LastSelectedTargetModIsHc = mod.IsHardcore;
-                        this.DialogResult = DialogResult.OK;
+                        Close(Result);
+                        return;
                     }
                 }
             }
 
-
-            this.Close();
+            Close(null);
         }
 
-        private void helpLink_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e) {
-            _helpService.ShowHelp(HelpService.HelpType.TransferToAnyMod);
-            this.Close();
+        private void helpLink_LinkClicked(object? sender, PointerPressedEventArgs e) {
+            _helpService.ShowHelp(IHelpService.HelpType.TransferToAnyMod);
+            Close(null);
         }
 
         public class StashPickerResult {
@@ -96,5 +94,4 @@ namespace IAGrim.UI {
             }
         }
     }
-
 }

@@ -1,0 +1,37 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theme="using:IAGrim.Theme"
+             x:Class="IAGrim.UI.Filters.Misc">
+
+    <Border Padding="4">
+        <StackPanel Spacing="2">
+            <TextBlock Text="Misc" Tag="iatag_ui_misc" FontWeight="Bold" Margin="4,4,4,8"/>
+            <theme:FirefoxCheckBox x:Name="cbCunning" Tag="iatag_ui_cunning" Content="Adds Cunning"/>
+            <theme:FirefoxCheckBox x:Name="cbSpirit" Tag="iatag_ui_spirit" Content="Adds Spirit"/>
+            <theme:FirefoxCheckBox x:Name="cbPhysique" Tag="iatag_ui_physique" Content="Adds Physique"/>
+            <theme:FirefoxCheckBox x:Name="cbIncreaseArmor" Tag="iatag_ui_armorincrease" Content="Armor increase"/>
+            <theme:FirefoxCheckBox x:Name="cbCooldownReduction" Tag="iatag_ui_cooldown_reduction" Content="Cooldown Reduction"/>
+            <theme:FirefoxCheckBox x:Name="cbDamageConversion" Tag="iatag_ui_weapon_damage_conversion" Content="Damage Conversion"/>
+            <theme:FirefoxCheckBox x:Name="cbWeaponLifeLeech" Tag="iatag_ui_weapon_life_leech" Content="Weapon Life Leech"/>
+            <theme:FirefoxCheckBox x:Name="cbEnergyRegen" Tag="iatag_ui_energy_regen" Content="Energy Regeneration"/>
+            <theme:FirefoxCheckBox x:Name="cbSummonerSkill" Tag="iatag_ui_grants_summon_skill" Content="Grants Summoner Skill"/>
+            <theme:FirefoxCheckBox x:Name="cbGrantsSkill" Tag="iatag_ui_grants_skill" Content="Grants Skill"/>
+            <theme:FirefoxCheckBox x:Name="cbReflect" Tag="iatag_ui_reflect" Content="Reflect"/>
+            <theme:FirefoxCheckBox x:Name="shieldStuff" Tag="iatag_ui_block" Content="Block"/>
+            <theme:FirefoxCheckBox x:Name="setbonus" Tag="iatag_ui_setbonus" Content="Set Bonus"/>
+            <theme:FirefoxCheckBox x:Name="cbPetBonuses" Tag="iatag_ui_petbonuses" Content="Pet Bonuses"/>
+            <theme:FirefoxCheckBox x:Name="cbHasPetBonus" Tag="iatag_ui_haspetbonus" Content="Has Pet Bonus"/>
+            <theme:FirefoxCheckBox x:Name="cbMasterySkills" Tag="iatag_ui_mastery" Content="Mastery Skills"/>
+            <theme:FirefoxCheckBox x:Name="cbCastspeed" Tag="iatag_ui_castspeed" Content="Cast Speed"/>
+            <theme:FirefoxCheckBox x:Name="cbAttackSpeed" Tag="iatag_ui_attackspeed" Content="Attack Speed"/>
+            <theme:FirefoxCheckBox x:Name="health" Tag="iatag_ui_health" Content="Health"/>
+            <theme:FirefoxCheckBox x:Name="cbOffensive" Tag="iatag_ui_offensive" Content="Offensive"/>
+            <theme:FirefoxCheckBox x:Name="cbDefense" Tag="iatag_ui_defensive" Content="Defensive"/>
+            <theme:FirefoxCheckBox x:Name="cbRunspeed" Tag="iatag_ui_runspeed" Content="Movement Speed"/>
+            <theme:FirefoxCheckBox x:Name="exp" Tag="iatag_ui_experience" Content="Experience"/>
+            <theme:FirefoxCheckBox x:Name="cbSocketed" Tag="iatag_ui_socketedonly" Content="With components"/>
+            <theme:FirefoxCheckBox x:Name="cbDuplicates" Tag="iatag_ui_duplicatesonly" Content="Duplicates Only"/>
+            <theme:FirefoxCheckBox x:Name="cbRecentOnly" Tag="iatag_ui_recentonly" Content="Recent Only"/>
+        </StackPanel>
+    </Border>
+</UserControl>

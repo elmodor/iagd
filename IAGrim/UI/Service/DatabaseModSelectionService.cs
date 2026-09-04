@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 using IAGrim.UI.Model;
 using IAGrim.Utilities;
 
@@ -33,8 +32,9 @@ namespace IAGrim.UI.Service {
                     return $"{expansionLevel} Expansions"; // No translation, this is a worst case IA is outdated error.
             }
         }
-        public List<ListViewItem> GetGrimDawnInstalls(IEnumerable<string> paths) {
-            List<ListViewItem> entries = new List<ListViewItem>();
+
+        public List<ListViewEntry> GetGrimDawnInstalls(IEnumerable<string> paths) {
+            List<ListViewEntry> entries = new List<ListViewEntry>();
 
             foreach (var gdPath in paths) {
                 if (!string.IsNullOrEmpty(gdPath) && Directory.Exists(gdPath)) {
@@ -43,31 +43,25 @@ namespace IAGrim.UI.Service {
                     for (int i = 1; i <= 9; i++) {
                         expansionLevel = Directory.Exists(Path.Combine(gdPath, $"gdx{i}")) ? i : expansionLevel;
                     }
-                    
-                    ListViewItem vanilla = new ListViewItem(GetLabel(expansionLevel));
-                    vanilla.SubItems.Add(gdPath);
-                    vanilla.Tag = new ListViewEntry { Path = gdPath, IsVanilla = true };
-                    entries.Add(vanilla);
+
+                    entries.Add(new ListViewEntry {Path = gdPath, IsVanilla = true, Name = GetLabel(expansionLevel)});
                 }
 
             }
 
-            
+
 
             return entries;
         }
 
-        public List<ListViewItem> GetInstalledMods(IEnumerable<string> paths) {
-            List<ListViewItem> entries = new List<ListViewItem>();
+        public List<ListViewEntry> GetInstalledMods(IEnumerable<string> paths) {
+            List<ListViewEntry> entries = new List<ListViewEntry>();
             const string theCrucibleDlc = "survivalmode";
             var noModSelected = RuntimeSettings.Language!.GetTag("iatag_ui_none");
 
-            ListViewItem empty = new ListViewItem(noModSelected);
-            empty.SubItems.Add("-");
-            empty.Tag = null;
-            entries.Add(empty);
+            entries.Add(new ListViewEntry {Path = string.Empty, IsVanilla = false, Name = noModSelected});
 
-            
+
             foreach (var gdPath in paths) {
                 List<string> modpaths = new List<string>();
                 modpaths.Add(Path.Combine(gdPath, "mods"));
@@ -91,10 +85,7 @@ namespace IAGrim.UI.Service {
                                     continue;
                                 }
 
-                                ListViewItem mod = new ListViewItem(modName);
-                                mod.SubItems.Add(directory);
-                                mod.Tag = new ListViewEntry {Path = directory, IsVanilla = false};
-                                entries.Add(mod);
+                                entries.Add(new ListViewEntry {Path = directory, IsVanilla = false, Name = modName});
                             }
                         }
                     }

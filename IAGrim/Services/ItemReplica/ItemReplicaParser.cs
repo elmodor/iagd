@@ -180,13 +180,7 @@ namespace IAGrim.Services.ItemReplica {
                 }
             }
             catch (IOException ex) {
-                _logger.Warn("IOException reading replica file: " + ex.Message);
-                if (ex.Message.Contains("because it is being used by another process")) {
-                    var locks = DebugLockedFileUtil.WhoIsLocking(filename);
-                    foreach (var process in locks) {
-                        _logger.Warn($"The process \"{process.ProcessName}\" is locking {filename}");
-                    }
-                }
+                _logger.Warn($"Unable to read replica file {filename} (HResult 0x{ex.HResult:X8}): {ex.Message}. Might be locked by a different process.", ex);
             }
             catch (SqliteException ex) {
                 _logger.Warn($"Error storing replica item stats for item {latest}: " + ex.Message);

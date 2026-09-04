@@ -2,7 +2,7 @@
 using System;
 
 namespace IAGrim.Utilities.HelperClasses {
-    public class GDTransferFile : IComboBoxItemToggle, IEquatable<GDTransferFile> {
+    public class GDTransferFile : IEquatable<GDTransferFile> {
         public string? Filename { get; set; }
 
         public bool IsHardcore { get; set; }

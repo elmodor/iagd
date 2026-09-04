@@ -1,7 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
-using System.Windows.Forms;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
 using IAGrim.Services.ItemStats;
+using IAGrim.Theme;
 
 namespace IAGrim.UI.Filters {
     public partial class Damage : UserControl {
@@ -10,14 +13,14 @@ namespace IAGrim.UI.Filters {
             FirefoxCheckBox.EnableNumericFilters(this);
         }
 
-        public bool RetaliationDamage => dmgRetaliation.Checked;
+        public bool RetaliationDamage => dmgRetaliation.IsChecked == true;
 
         // The selected stat checkboxes paired with the stat fields they contribute, built once so both the
         // plain "stat exists" filters and the per-checkbox numeric filters derive from the same mapping.
         private List<(FirefoxCheckBox cb, string[] fields)> SelectedStatGroups() {
             var groups = new List<(FirefoxCheckBox, string[])>();
 
-            if (totalDamage.Checked)
+            if (totalDamage.IsChecked == true)
                 groups.Add((totalDamage, new[] {"offensiveTotalDamageModifier"}));
 
             var damageTypes = new[] {
@@ -34,7 +37,7 @@ namespace IAGrim.UI.Filters {
             };
 
             foreach (var (cb, damageType) in damageTypes) {
-                if (!cb.Checked)
+                if (cb.IsChecked != true)
                     continue;
 
                 var isElemental = damageType == "Fire" || damageType == "Cold" || damageType == "Lightning";

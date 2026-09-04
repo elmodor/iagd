@@ -1,5 +1,7 @@
 ﻿using IAGrim.Utilities;
+using log4net;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -8,8 +10,14 @@ using System.Runtime.InteropServices;
 
 namespace IAGrim.UI.Misc.CEF {
 
+    public class WebUiMessage {
+        public string Method { get; set; } = "";
+        public JArray? Args { get; set; }
+    }
+
     [ComVisible(true)]
     public class JavascriptIntegration {
+        private static readonly ILog Logger = LogManager.GetLogger(typeof(JavascriptIntegration));
         private readonly JsonSerializerSettings _settings = new JsonSerializerSettings {
             ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
             Culture = System.Globalization.CultureInfo.InvariantCulture,
@@ -17,7 +25,7 @@ namespace IAGrim.UI.Misc.CEF {
             NullValueHandling = NullValueHandling.Ignore
         };
 
-        public event EventHandler<StashTransferEventArgs>? ItemTransferEvent;
+        public event Func<object?, StashTransferEventArgs, Task>? ItemTransferEvent;
         public event EventHandler<ClipboardEventArg>? OnClipboard;
         public event EventHandler? OnRequestItems;
         public event EventHandler? OnRequestCollectionData;
@@ -27,10 +35,80 @@ namespace IAGrim.UI.Misc.CEF {
         public event EventHandler? OnSignalReadiness;
         public event EventHandler? OnDismissNumericFilterBanner;
 
-        public string TransferItem(object[] identifier, bool transferAll) {
+        public async Task<string?> HandleMessage(string json)
+        {
+            Logger.Debug($"Received WebUI message: {json}");
+
+            var message = JsonConvert.DeserializeObject<WebUiMessage>(json);
+
+            if (message == null) {
+                throw new InvalidOperationException(
+                    "Could not deserialize WebUI message"
+                );
+            }
+
+            switch (message.Method) {
+                case "TransferItem":
+                    return await TransferItem(
+                        message.Args![0].ToObject<object[]>()!,
+                        message.Args![1].ToObject<bool>()
+                    );
+
+                case "SetClipboard":
+                    SetClipboard(
+                        message.Args![0].ToObject<string>()!
+                    );
+                    return null;
+
+                case "RequestMoreItems":
+                    RequestMoreItems();
+                    return null;
+
+                case "RequestCollectionData":
+                    RequestCollectionData();
+                    return null;
+
+                case "GetItemSetAssociations":
+                    return GetItemSetAssociations();
+
+                case "GetBackedUpCharacters":
+                    return GetBackedUpCharacters();
+
+                case "GetCharacterDownloadUrl":
+                    return GetCharacterDownloadUrl(
+                        message.Args![0].ToObject<string>()!
+                    );
+
+                case "OpenURL":
+                    OpenURL(
+                        message.Args![0].ToObject<string>()!
+                    );
+                    return null;
+
+                case "SignalReady":
+                    SignalReady();
+                    return null;
+
+                case "GetTranslationStrings":
+                    return GetTranslationStrings();
+
+                case "DismissNumericFilterBanner":
+                    DismissNumericFilterBanner();
+                    return null;
+
+                default:
+                    throw new InvalidOperationException(
+                        $"Unknown WebUI method: {message.Method}"
+                    );
+            }
+        }
+
+        public async Task<string> TransferItem(object[] identifier, bool transferAll) {
             var args = new StashTransferEventArgs(identifier, transferAll);
-             
-            ItemTransferEvent?.Invoke(this, args);
+
+            if (ItemTransferEvent != null) {
+                await ItemTransferEvent(this, args);
+            }
 
             // Frontend expects a reply on success/failure
             var ret = new Dictionary<string, object> {

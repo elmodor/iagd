@@ -1,0 +1,17 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="IAGrim.UI.Popups.ImportExport.ImportExportContainer"
+        Width="770"
+        Height="260"
+        MinWidth="600"
+        MinHeight="220"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Tag="iatag_ui_title_importexport"
+        Title="Import / Export"
+        Opened="ImportExportContainer_Load">
+
+    <Border BorderBrush="{DynamicResource IAGrimWindowBorder}" BorderThickness="1">
+    <ContentControl x:Name="contentPanel" />
+    </Border>
+</Window>

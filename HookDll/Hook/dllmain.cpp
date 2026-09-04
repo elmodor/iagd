@@ -1,8 +1,8 @@
-#include "stdafx.h"
 #include <chrono>
 #include <codecvt> // wstring_convert
 #include <windows.h>
 #include <stdlib.h>
+#include <filesystem>
 #include <objbase.h>
 #include <fstream>
 #include "DataQueue.h"
@@ -15,7 +15,20 @@
 #include "Logger.h"
 #include "SetHardcore.h"
 #include "SettingsReader.h"
-HookLog g_log;
+#include "MinHook.h"
+
+/// The log is constructed on first use rather than as a namespace-scope global.
+///
+/// LogToFile is reachable from static initialisers in *other* translation units -- GrimTypes resolves the game.dll exports that way, and logs when one is missing. Initialisation order
+/// across translation units is unspecified, so a namespace-scope HookLog can still be unconstructed when that happens. Writing to it then is undefined behaviour, and it occurs
+/// before any log file exists, so the resulting crash leaves no trace at all -- which is what  made this expensive to find.
+///
+/// A function-local static is initialised on first call instead. That is well defined from
+/// anywhere, including another translation unit's static initialiser, and thread safe since C++11.
+static HookLog& g_log() {
+	static HookLog instance;
+	return instance;
+}
 
 #pragma region Variables
 // Switches hook logging on/off
@@ -23,9 +36,9 @@ HookLog g_log;
 #define LOG(streamdef) \
 { \
     std::wstring msg = (((std::wostringstream&)(std::wostringstream().flush() << streamdef)).str()); \
-	g_log.out(logStartupTime() + msg); \
-    msg += _T("\n"); \
-    OutputDebugString(msg.c_str()); \
+	g_log().out(logStartupTime() + msg); \
+    msg += L"\n"; \
+    OutputDebugStringW(msg.c_str()); \
 }
 #else
 #define LOG(streamdef) \
@@ -46,6 +59,7 @@ HWND g_targetWnd = NULL;
 
 bool g_isRunningInWine = false;
 std::wstring g_linuxHackFolder;
+HANDLE g_singleInstanceMutex = NULL;
 
 #pragma endregion
 
@@ -116,19 +130,19 @@ static bool ShouldFlush(LogLevel level) {
 }
 
 void LogToFile(LogLevel level, const wchar_t* message) {
-	g_log.out(logStartupTime() + LogLevelToString(level) + message, ShouldFlush(level));
+	g_log().out(logStartupTime() + LogLevelToString(level) + message, ShouldFlush(level));
 }
 void LogToFile(LogLevel level, const char* message) {
-	g_log.out((logStartupTimeChar() + LogLevelToStringA(level).c_str() + std::string(message)).c_str(), ShouldFlush(level));
+	g_log().out((logStartupTimeChar() + LogLevelToStringA(level).c_str() + std::string(message)).c_str(), ShouldFlush(level));
 }
 void LogToFile(LogLevel level, const std::string message) {
-	g_log.out((logStartupTimeChar() + LogLevelToStringA(level) + message).c_str(), ShouldFlush(level));
+	g_log().out((logStartupTimeChar() + LogLevelToStringA(level) + message).c_str(), ShouldFlush(level));
 }
 void LogToFile(LogLevel level, std::wstring message) {
-	g_log.out(logStartupTime() + LogLevelToString(level) + message, ShouldFlush(level));
+	g_log().out(logStartupTime() + LogLevelToString(level) + message, ShouldFlush(level));
 }
 void LogToFile(LogLevel level, std::wstringstream message) {
-	g_log.out(logStartupTime() + LogLevelToString(level) + message.str(), ShouldFlush(level));
+	g_log().out(logStartupTime() + LogLevelToString(level) + message.str(), ShouldFlush(level));
 }
 
 
@@ -136,6 +150,7 @@ void LogToFile(LogLevel level, std::wstringstream message) {
 // Format: [int32 type][int32 dataLength][raw data bytes]
 // Write as .tmp then rename to .msg for atomic visibility
 void WriteMessageToFile(DWORD dwData, void* lpData, DWORD cbData) {
+   return; // TODO. do we need this?
 	GUID guid;
 	if (CoCreateGuid(&guid) != S_OK) {
 		LogToFile(LogLevel::FATAL, L"Failed to create GUID for message file");
@@ -151,7 +166,7 @@ void WriteMessageToFile(DWORD dwData, void* lpData, DWORD cbData) {
 	std::wstring tmpPath = g_linuxHackFolder + guidStr + L".tmp";
 	std::wstring msgPath = g_linuxHackFolder + guidStr + L".msg";
 
-	HANDLE hFile = CreateFile(tmpPath.c_str(), GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+	HANDLE hFile = CreateFileW(tmpPath.c_str(), GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (hFile == INVALID_HANDLE_VALUE) {
 		LogToFile(LogLevel::FATAL, L"Failed to create temp message file: " + tmpPath);
 		return;
@@ -168,9 +183,9 @@ void WriteMessageToFile(DWORD dwData, void* lpData, DWORD cbData) {
 	}
 	CloseHandle(hFile);
 
-	if (!MoveFile(tmpPath.c_str(), msgPath.c_str())) {
+	if (!MoveFileW(tmpPath.c_str(), msgPath.c_str())) {
 		LogToFile(LogLevel::FATAL, L"Failed to move message file to: " + msgPath);
-		DeleteFile(tmpPath.c_str());
+		DeleteFileW(tmpPath.c_str());
 	}
 }
 
@@ -199,7 +214,7 @@ void WorkerThreadMethod() {
 				}
 
 				if ((tick - g_lastThreadTick > 1000) || (g_targetWnd == NULL)) {
-					g_targetWnd = FindWindow(L"GDIAWindowClass", NULL);
+					g_targetWnd = FindWindowW(L"GDIAWindowClass", NULL);
 					g_lastThreadTick = GetTickCount();
 
 					if (g_InventorySack_AddItemInstance != NULL) {
@@ -350,8 +365,8 @@ bool GetProductAndVersion()
 	unsigned int iProductVersionLen = 0;
 
 	// replace "040904e4" with the language ID of your resources
-	if (!VerQueryValue(&data[0], _T("\\StringFileInfo\\040904e4\\ProductName"), &pvProductName, &iProductNameLen) ||
-		!VerQueryValue(&data[0], _T("\\StringFileInfo\\040904e4\\ProductVersion"), &pvProductVersion, &iProductVersionLen))
+	if (!VerQueryValue(&data[0], L"\\StringFileInfo\\040904e4\\ProductName", &pvProductName, &iProductNameLen) ||
+		!VerQueryValue(&data[0], L"\\StringFileInfo\\040904e4\\ProductVersion", &pvProductVersion, &iProductVersionLen))
 	{
 		LogToFile("Can't obtain ProductName and ProductVersion from resources");
 		return false;
@@ -382,7 +397,7 @@ void WriteInjectionAbortedMarker() {
 	}
 
 	std::wstring markerFile = g_linuxHackFolder + std::to_wstring(GetCurrentProcessId()) + L".ABORTED";
-	HANDLE hMarker = CreateFile(markerFile.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	HANDLE hMarker = CreateFileW(markerFile.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (hMarker != INVALID_HANDLE_VALUE) {
 		CloseHandle(hMarker);
 		LogToFile(LogLevel::INFO, L"Wrote injection aborted marker: " + markerFile);
@@ -399,7 +414,7 @@ void ReportCancelledInjection() {
 		return;
 	}
 
-	auto hwnd = FindWindow(L"GDIAWindowClass", NULL);
+	auto hwnd = FindWindowW(L"GDIAWindowClass", NULL);
 	if (hwnd == nullptr) {
 		return;
 	}
@@ -418,10 +433,65 @@ void ReportCancelledInjection() {
 
 std::vector<BaseMethodHook*> hooks;
 std::wstring GetIagdFolder();
+
+/// Refuse to initialise if this hook is already loaded in the target process.
+///
+/// LoadLibrary only dedupes by module path, so the same DLL under a second filename loads a
+/// second, independent copy. Both then patch the same game functions -- the later one over the
+/// earlier one's trampolines -- and both start their own worker and seed-info threads writing the
+/// same files. That reliably crashes the game.
+///
+/// The name carries the pid, so two separate game processes are unaffected.
+static bool ClaimSingleInstance() {
+	const std::wstring name = L"Local\\ItemAssistantHook_" + std::to_wstring(GetCurrentProcessId());
+	g_singleInstanceMutex = CreateMutexW(NULL, TRUE, name.c_str());
+	if (g_singleInstanceMutex == NULL) {
+		// Cannot tell either way, and refusing would block a legitimate attach. Proceed.
+		LogToFile(LogLevel::WARNING, L"Could not create the single-instance mutex, continuing anyway.");
+		return true;
+	}
+	if (GetLastError() == ERROR_ALREADY_EXISTS) {
+		CloseHandle(g_singleInstanceMutex);
+		g_singleInstanceMutex = NULL;
+		return false;
+	}
+	return true;
+}
+
+/// The game-state exports are bound during static initialisation, which runs before DllMain and
+/// therefore before game.dll is known to be loaded. A missing one leaves a null function pointer,
+/// and the calls below used to make it without checking -- which is not distinguishable, from the
+/// outside, from the game crashing on its own.
+///
+/// A game that is not ready yet is the normal case rather than an error: the injector retries.
+static bool GameStateExportsResolved() {
+	if (IsGameLoading == nullptr || IsGameWaiting == nullptr || IsGameEngineOnline == nullptr) {
+		return false;
+	}
+	return true;
+}
+
 int ProcessAttach(HINSTANCE _hModule) {
 	//GetProductAndVersion();
 	LogToFile(LogLevel::INFO, std::string("DLL Compiled: ") + std::string(__DATE__) + std::string(" ") + std::string(__TIME__));
 	LogToFile(LogLevel::INFO, L"Attatching to process..");
+
+	// Before anything else, and in particular before g_isRunningInWine is set: a refused attach
+	// still gets a DLL_PROCESS_DETACH, and ProcessDetach deletes the .PID file when it thinks it
+	// is running under Wine. That file belongs to the copy that is already attached.
+	if (!ClaimSingleInstance()) {
+		LogToFile(LogLevel::FATAL,
+			L"This hook is already loaded in this process, refusing to attach a second copy. "
+			L"Two copies would hook the same functions and crash the game.");
+		return FALSE;
+	}
+
+   MH_STATUS status = MH_Initialize();
+   if (status != MH_OK)
+   {
+       LogToFile(LogLevel::FATAL, L"MinHook Initialization failed!");
+       return FALSE;
+   }
 
 	// Check if running in Wine/Proton
 	try {
@@ -435,13 +505,28 @@ int ProcessAttach(HINSTANCE _hModule) {
 
 	if (g_isRunningInWine) {
 		g_linuxHackFolder = GetIagdFolder() + L"linuxhack\\";
-		CreateDirectory(g_linuxHackFolder.c_str(), NULL);
+		CreateDirectoryW(g_linuxHackFolder.c_str(), NULL);
 		LogToFile(LogLevel::INFO, L"Wine mode enabled, linuxhack folder: " + g_linuxHackFolder);
 
+      // Remove all existing .PID files
+      try
+      {
+          for (const auto& entry : std::filesystem::directory_iterator(g_linuxHackFolder))
+          {
+              if (entry.is_regular_file() && entry.path().extension() == L".PID")
+              {
+                  std::error_code ec;
+                  std::filesystem::remove(entry.path(), ec);
+              }
+          }
+      }
+      catch (const std::filesystem::filesystem_error&)
+      {
+      }
 		// Write PID file to signal successful injection
 		DWORD pid = GetCurrentProcessId();
 		std::wstring pidFile = g_linuxHackFolder + std::to_wstring(pid) + L".PID";
-		HANDLE hPid = CreateFile(pidFile.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+		HANDLE hPid = CreateFileW(pidFile.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 		if (hPid != INVALID_HANDLE_VALUE) {
 			CloseHandle(hPid);
 			LogToFile(LogLevel::INFO, L"Wrote PID file: " + pidFile);
@@ -451,53 +536,96 @@ int ProcessAttach(HINSTANCE _hModule) {
 		}
 	}
 
+   bool logged = false;
+	while (!GameStateExportsResolved()) {
+      if(!logged) {
+         LogToFile(LogLevel::WARNING, L"The game.dll state exports are not all available, the game is not ready to be hooked yet.");
+         logged = true;
+      }
+      Sleep(1000);
+	}
 
-	GAME::GameEngine* gameEngine = fnGetGameEngine();
-	if (gameEngine == nullptr) {
-		ReportCancelledInjection();
-		LogToFile(LogLevel::INFO, L"Could not find game engine ptr, aborting DLL injection..");
-		return FALSE;
+	GAME::GameEngine* gameEngine = nullptr;
+   logged = false;
+   while(gameEngine == nullptr)
+   {
+      if(!logged) {
+         LogToFile(LogLevel::INFO, L"Engine nullpointer..");
+         logged = true;
+      }
+      gameEngine = fnGetGameEngine();
+      Sleep(1000);
+   }
+   LogToFile(LogLevel::INFO, L"Got Engine pointer..");
+   logged = false;
+	// if (gameEngine == nullptr) {
+	// 	ReportCancelledInjection();
+	// 	LogToFile(LogLevel::INFO, L"Could not find game engine ptr, aborting DLL injection..");
+	// 	return FALSE;
+	// }
+	while (IsGameLoading(gameEngine)) {
+      if(!logged) {
+         LogToFile(LogLevel::INFO, L"Game is loading..");
+         logged = true;
+      }
+		// ReportCancelledInjection();
+		// LogToFile(LogLevel::INFO, L"Game is still loading, aborting DLL injection..");
+		// return FALSE;
+      Sleep(1000);
 	}
-	if (IsGameLoading(gameEngine)) {
-		ReportCancelledInjection();
-		LogToFile(LogLevel::INFO, L"Game is still loading, aborting DLL injection..");
-		return FALSE;
-	}
-	else {
+	// else {
 		LogToFile(LogLevel::INFO, L"Game is not loading..");
-	}
+   logged = false;
+	// }
 
-	if (IsGameWaiting(gameEngine, true)) { // TODO: When on a PC with IDA installed, figure out what the boolean is.
-		ReportCancelledInjection();
-		LogToFile(LogLevel::INFO, L"Game is waiting, aborting DLL injection.. [true]");
-		return FALSE;
+	while (IsGameWaiting(gameEngine, true)) { // TODO: When on a PC with IDA installed, figure out what the boolean is.
+      if(!logged) {
+         LogToFile(LogLevel::INFO, L"Game is waiting.. [true]");
+         logged = true;
+      }
+		// ReportCancelledInjection();
+		// LogToFile(LogLevel::INFO, L"Game is waiting, aborting DLL injection.. [true]");
+		// return FALSE;
+      Sleep(1000);
 	}
-	else {
+	// else {
 		LogToFile(LogLevel::INFO, L"Game is not waiting.. [true]");
-	}
+   logged = false;
+	// }
 
-	if (IsGameWaiting(gameEngine, false)) { // TODO: When on a PC with IDA installed, figure out what the boolean is.
-		ReportCancelledInjection();
-		LogToFile(LogLevel::INFO, L"Game is waiting, aborting DLL injection.. [false]");
-		return FALSE;
+	while (IsGameWaiting(gameEngine, false)) { // TODO: When on a PC with IDA installed, figure out what the boolean is.
+      if(!logged) {
+         LogToFile(LogLevel::INFO, L"Game is waiting.. [false]");
+         logged = true;
+      }
+		// ReportCancelledInjection();
+		// LogToFile(LogLevel::INFO, L"Game is waiting, aborting DLL injection.. [false]");
+		// return FALSE;
+      Sleep(1000);
 	}
-	else {
+	// else {
 		LogToFile(LogLevel::INFO, L"Game is not waiting.. [false]");
-	}
+   logged = false;
+	// }
 
-	if (!IsGameEngineOnline(gameEngine)) {
-		ReportCancelledInjection();
-		LogToFile(LogLevel::INFO, L"Game engine is not yet online, aborting DLL injection..");
-		return FALSE;
+	while (!IsGameEngineOnline(gameEngine)) {
+      if(!logged) {
+         LogToFile(LogLevel::INFO, L"Game engine is offline..");
+         logged = true;
+      }
+		// ReportCancelledInjection();
+		// LogToFile(LogLevel::INFO, L"Game engine is not yet online, aborting DLL injection..");
+		// return FALSE;
+      Sleep(1000);
 	}
-	else {
+	// else {
 		LogToFile(LogLevel::INFO, L"Game engine is online..");
-	}
+	// }
 
 	LogToFile(LogLevel::INFO, L"Game is most likely running, proceeding with injection.");
 
 
-	g_hEvent = CreateEvent(NULL, FALSE, FALSE, L"IA_Worker");
+	g_hEvent = CreateEventW(NULL, FALSE, FALSE, L"IA_Worker");
 
 	LogToFile(LogLevel::INFO, L"DLL for GD 1.3");
 
@@ -526,7 +654,7 @@ int ProcessAttach(HINSTANCE _hModule) {
 	StartWorkerThread();
 	LogToFile(LogLevel::INFO, L"Initialization complete..");
 
-	g_log.setInitialized(true);
+	g_log().setInitialized(true);
 	return TRUE;
 }
 
@@ -537,13 +665,10 @@ int ProcessDetach(HINSTANCE _hModule) {
 	// This message is not at all guaranteed to get sent.
 
 	LOG(L"Detatching DLL..");
-	OutputDebugString(L"ProcessDetach");
+	OutputDebugStringW(L"ProcessDetach");
 
-
-	for (unsigned int i = 0; i < hooks.size(); i++) {
-		hooks[i]->DisableHook();
-		delete hooks[i];
-	}
+   MH_DisableHook(MH_ALL_HOOKS);
+   MH_RemoveHook(MH_ALL_HOOKS);
 	hooks.clear();
 
 	if (listener != nullptr) {
@@ -558,19 +683,52 @@ int ProcessDetach(HINSTANCE _hModule) {
 	if (g_isRunningInWine && !g_linuxHackFolder.empty()) {
 		DWORD pid = GetCurrentProcessId();
 		std::wstring pidFile = g_linuxHackFolder + std::to_wstring(pid) + L".PID";
-		DeleteFile(pidFile.c_str());
+		DeleteFileW(pidFile.c_str());
+	}
+
+   MH_Uninitialize();
+
+	if (g_singleInstanceMutex != NULL) {
+		ReleaseMutex(g_singleInstanceMutex);
+		CloseHandle(g_singleInstanceMutex);
+		g_singleInstanceMutex = NULL;
 	}
 
 	LOG(L"DLL detached..");
 	return TRUE;
 }
 
+DWORD WINAPI ThreadProc(void*)
+{
+    LogToFile(LogLevel::INFO, L"Hook thread started");
+
+    HMODULE dxgi = nullptr;
+    HMODULE d3d11 = nullptr;
+    HMODULE game = nullptr;
+    HMODULE engine = nullptr;
+
+    while(true)
+    {
+        dxgi = GetModuleHandleA("dxgi.dll");
+        d3d11 = GetModuleHandleA("d3d11.dll");
+        game = GetModuleHandleA("Game.dll");
+        engine = GetModuleHandleA("Engine.dll");
+
+        if(dxgi && d3d11 && game && engine)
+        {
+            ProcessAttach(HINSTANCE{});
+            break;
+        }
+        Sleep(1000);
+    }
+    return 0;
+}
 
 BOOL APIENTRY DllMain(HINSTANCE hModule, DWORD  ul_reason_for_call, LPVOID lpReserved) {
 	switch (ul_reason_for_call) {
 	case DLL_PROCESS_ATTACH:
-		return ProcessAttach(hModule);
-
+       CreateThread(nullptr, 0, ThreadProc, nullptr, 0, nullptr);
+       break;
 	case DLL_PROCESS_DETACH:
 		return ProcessDetach(hModule);
 	}

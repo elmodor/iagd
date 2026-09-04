@@ -9,7 +9,9 @@ using System.Collections.Generic;
 using System.Linq;
 using IAGrim.UI.Misc;
 using IAGrim.Settings;
-using System.Windows.Forms;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Threading;
 using static IAGrim.UI.StashPicker;
 
 namespace IAGrim.UI.Controller {
@@ -113,7 +115,7 @@ namespace IAGrim.UI.Controller {
         /// Transfer item request from sub control
         /// MUST BE CALLED ON SQL THREAD
         /// </summary>
-        public void TransferItem(StashTransferEventArgs args) {
+        public async Task TransferItem(StashTransferEventArgs args, Window owner) {
             Logger.Debug($"Item transfer requested, arguments: {args}");
 
             List<PlayerItem>? items = GetItemsForTransfer(args);
@@ -122,9 +124,7 @@ namespace IAGrim.UI.Controller {
             if (items?.Count > 0) {
                 if (_settingsService.GetPersistent().TransferAnyMod) {
                     StashPicker picker = new StashPicker(_browser, _dao, _settingsService);
-                    if (picker.ShowDialog() == DialogResult.OK) {
-                        modOverride = picker.Result;
-                    }
+                    modOverride = await Dispatcher.UIThread.InvokeAsync(() => picker.ShowDialog<StashPicker.StashPickerResult?>(owner));
                 }
 
                 var result = TransferItems(items, modOverride);

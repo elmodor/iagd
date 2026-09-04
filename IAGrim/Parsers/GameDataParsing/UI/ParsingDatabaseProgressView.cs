@@ -1,17 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
-using IAGrim.Parsers.Arz;
+﻿using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
 using IAGrim.Utilities;
+using IAGrim.Parsers.Arz;
 
 namespace IAGrim.Parsers.GameDataParsing.UI {
-    public partial class ParsingDatabaseProgressView : Form {
+    public partial class ParsingDatabaseProgressView : Window {
         public ProgressBar LoadingTags => progressLoadingTags;
         public ProgressBar SavingTags => progressSavingTags;
         public ProgressBar LoadingItems => progressLoadingItems;
@@ -21,32 +15,32 @@ namespace IAGrim.Parsers.GameDataParsing.UI {
         public ProgressBar IndexingItems => progressIndexItems;
         public ProgressBar GeneratingSpecialStats => progressGeneratingSpecialStats;
         public ProgressBar SavingSpecialStats => progressSavingSpecialStats;
-        
+
         public ProgressBar GeneratingSkills => progressGeneratingSkills;
         public ProgressBar SkillCorrectnessCheck => progressSkillCorrectnessCheck;
 
-        private bool closePermitted = false;
-        public void OverrideClose() {
-            closePermitted = true;
-            Close();
-        }
+        private bool _closePermitted;
 
         public ParsingDatabaseProgressView() {
             InitializeComponent();
-            this.FormClosing += OnFormClosing;
+            Closing += OnClosing;
+            Opened += OnOpened;
         }
 
-        private void OnFormClosing(object? sender, FormClosingEventArgs formClosingEventArgs) {
-            if (formClosingEventArgs.CloseReason == CloseReason.UserClosing) {
-                formClosingEventArgs.Cancel = !closePermitted;
-            } else {
-                formClosingEventArgs.Cancel = closePermitted;
+        public void OverrideClose() {
+            _closePermitted = true;
+            Close();
+        }
+
+        private void OnClosing(object? sender, WindowClosingEventArgs e) {
+            if (!_closePermitted) {
+                e.Cancel = true;
             }
         }
 
-        private void ParsingDatabaseProgressView_Load(object sender, EventArgs e) {
+        private void OnOpened(object? sender, EventArgs e) {
             if (RuntimeSettings.Language != null) {
-                LocalizationLoader.ApplyLanguage(Controls, RuntimeSettings.Language);
+                LocalizationLoader.ApplyLanguage(this, RuntimeSettings.Language);
             }
         }
     }

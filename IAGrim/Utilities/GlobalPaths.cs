@@ -9,29 +9,64 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using static IAGrim.Utilities.HelperClasses.GDTransferFile;
+using IAGrim.Overwrites.LinuxConfig;
 
 namespace IAGrim.Utilities {
     internal static class GlobalPaths {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(GlobalPaths));
-        
+        private static string? _grimDawnWineUserProfilePath;
+        public static bool HasGrimDawnWineUserProfilePath => !string.IsNullOrWhiteSpace(_grimDawnWineUserProfilePath);
 
-
-        private static string LocalAppdata {
+        public static string GrimDawnWineUserProfilePath {
             get {
-                string? appdata = System.Environment.GetEnvironmentVariable("LocalAppData");
-                if (string.IsNullOrEmpty(appdata))
-                    return Path.Combine(System.Environment.GetEnvironmentVariable("AppData") ?? string.Empty, "..", "local");
-                else
-                    return appdata;
+                if (string.IsNullOrWhiteSpace(_grimDawnWineUserProfilePath)) {
+                    throw new InvalidOperationException("Grim Dawn Wine user profile path has not been configured.");
+                }
+                return _grimDawnWineUserProfilePath;
+            }
+            set {
+                var grimDawnWineUserProfilePath = value?.Trim();
+                if (string.IsNullOrWhiteSpace(grimDawnWineUserProfilePath)) {
+                    Logger.Warn("Wine user profile path is empty");
+                    throw new ArgumentException($"The selected wine user profile path is empty");
+                }
+                if (!Directory.Exists(grimDawnWineUserProfilePath)) {
+                    Logger.Warn($"Wine user profile path does not exist: {grimDawnWineUserProfilePath}");
+                    throw new ArgumentException($"The selected wine user profile path does not exist:\n{grimDawnWineUserProfilePath}");
+                }
+                var appData = Path.Combine(grimDawnWineUserProfilePath, "AppData");
+                var grimDawnDocs = Path.Combine(grimDawnWineUserProfilePath, "Documents", "My Games", "Grim Dawn");
+                var savePath = Directory.Exists(Path.Combine(grimDawnDocs, "save")) ? Path.Combine(grimDawnDocs, "save") : Directory.Exists(Path.Combine(grimDawnDocs, "Save")) ? Path.Combine(grimDawnDocs, "Save") : null;
+                if (!Directory.Exists(appData) || savePath == null) {
+                    Logger.Warn($"Invalid Grim Dawn wine user profile path: {grimDawnWineUserProfilePath}. AppData exists: {Directory.Exists(appData)}, save exists: {Directory.Exists(savePath)}");
+                    throw new ArgumentException($"The selected folder does not appear to be a Grim Dawn wine user profile.\nThe following folders must exist:\n{appData}\n{savePath}");
+                }
+                _grimDawnWineUserProfilePath = Path.GetFullPath(grimDawnWineUserProfilePath);
             }
         }
 
+        private static string LocalAppdata {
+            get {
+                var appData = Path.Combine(GrimDawnWineUserProfilePath, "AppData");
+
+                var local = Path.Combine(appData, "Local");
+                if (Directory.Exists(local))
+                    return local;
+
+                var localLower = Path.Combine(appData, "local");
+                if (Directory.Exists(localLower))
+                    return localLower;
+
+                // Default to the normal Wine/Windows spelling.
+                return local;
+            }
+        }
 
         public static string ItemsHtmlFile => Path.Combine(StorageFolder, "index.html");
 
         public static string BackupLocation {
             get {
-                string path = Path.Combine(CoreFolder, "backup");
+                string path = Path.Combine(LinuxConfig.DataDirectory, "backup");
                 Directory.CreateDirectory(path);
                 return path;
             }
@@ -118,14 +153,6 @@ namespace IAGrim.Utilities {
             }
         }
 
-        public static string EdgeCacheLocation{
-            get {
-                string path = Path.Combine(CoreFolder, "edge");
-                Directory.CreateDirectory(path);
-                return path;
-            }
-        }
-
         public static string LinuxHack {
             get {
                 string path = Path.Combine(CoreFolder, "linuxhack");
@@ -134,25 +161,18 @@ namespace IAGrim.Utilities {
             }
         }
 
-
-
-        [DllImport("shell32.dll", CharSet = CharSet.Unicode, ExactSpelling = true, PreserveSig = false)]
-        private static extern string SHGetKnownFolderPath(
-            [MarshalAs(UnmanagedType.LPStruct)] Guid rfid,
-            uint dwFlags,
-            IntPtr hToken
-        );
-
+        // TODO
         public static string? DownloadsFolder {
             get {
-                Guid DownloadsFolderGuid = new Guid("{374DE290-123F-4565-9164-39C4925E467B}");
-                try {
-                    return SHGetKnownFolderPath(DownloadsFolderGuid, 0, IntPtr.Zero);
-                }
-                catch (Exception ex) {
-                    Logger.Warn(ex);
-                    return null;
-                }
+                return LinuxConfig.DataDirectory;
+                // Guid DownloadsFolderGuid = new Guid("{374DE290-123F-4565-9164-39C4925E467B}");
+                // try {
+                //     return SHGetKnownFolderPath(DownloadsFolderGuid, 0, IntPtr.Zero);
+                // }
+                // catch (Exception ex) {
+                //     Logger.Warn(ex);
+                //     return null;
+                // }
             }
         }
 
@@ -181,7 +201,8 @@ namespace IAGrim.Utilities {
 
         public static string SavePath {
             get {
-                var p = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "My Games", "Grim Dawn", "Save");
+                var grimDawnDocs = Path.Combine(GrimDawnWineUserProfilePath, "Documents", "My Games", "Grim Dawn");
+                var p = Directory.Exists(Path.Combine(grimDawnDocs, "save")) ? Path.Combine(grimDawnDocs, "save") : Path.Combine(grimDawnDocs, "Save");
                 Directory.CreateDirectory(p);
                 return p;
             }
@@ -263,7 +284,7 @@ namespace IAGrim.Utilities {
 
         public static string UserdataFolder {
             get {
-                string path = Path.Combine(CoreFolder, "data");
+                string path = Path.Combine(LinuxConfig.DataDirectory, "data");
                 Directory.CreateDirectory(path);
 
                 return path;
@@ -273,7 +294,7 @@ namespace IAGrim.Utilities {
         public static string StorageFolder {
             get {
                 string
-                    path = Path.Combine(CoreFolder, "storage")
+                    path = Path.Combine(LinuxConfig.DataDirectory, "resources")
                         .Replace("#",
                             ""); // Some brilliant people have hashtags in their windows usernames..  That works poorly when opening HTML files with a # in the path.
                 Directory.CreateDirectory(path);
@@ -283,16 +304,15 @@ namespace IAGrim.Utilities {
         }
 
 #if DEBUG
-        public static string SettingsFile => Path.Combine(CoreFolder, "settings-debug.json").Replace("#", "");
+        public static string SettingsFile => Path.Combine(LinuxConfig.ConfigDirectory, "settings-debug.json").Replace("#", "");
 #else
-        public static string SettingsFile => Path.Combine(CoreFolder, "settings.json").Replace("#", "");
+        public static string SettingsFile => Path.Combine(LinuxConfig.ConfigDirectory, "settings.json").Replace("#", "");
 #endif
 
         public static string CoreFolder {
             get {
-                string path = Path.Combine(LocalAppdata, "EvilSoft", "IAGD");
+                var path = Path.Combine(LocalAppdata, "EvilSoft", "IAGD");
                 Directory.CreateDirectory(path);
-
                 return path;
             }
         }

@@ -1,21 +1,20 @@
-﻿using IAGrim.Backup.FileWriter;
+﻿using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
+using IAGrim.Backup.FileWriter;
 using IAGrim.Database.Interfaces;
-using IAGrim.Utilities.HelperClasses;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
 using IAGrim.Parsers.Arz;
 using IAGrim.Utilities;
+using System;
+using System.IO;
+using System.Linq;
+using IAGrim.Overwrites.MessageBox;
+using IAGrim.Utilities.HelperClasses;
+using IAGrim.Overwrites.LinuxConfig;
 
 namespace IAGrim.UI.Popups.ImportExport.Panels {
-    public partial class ExportMode : Form {
+    public partial class ExportMode : UserControl {
         private readonly GDTransferFile[] _modSelection;
         private readonly IPlayerItemDao _playerItemDao;
         private readonly Action onClose;
@@ -27,48 +26,63 @@ namespace IAGrim.UI.Popups.ImportExport.Panels {
             this._modSelection = modSelection;
             this._playerItemDao = playerItemDao;
             this.onClose = onClose;
+
+            Loaded += ExportMode_Load;
         }
 
-        enum FilterType {
+        private enum FilterType {
             IAS = 1,
             GDS = 2
-        };
+        }
 
-        private void buttonBrowse_Click(object sender, EventArgs e) {
-            var diag = new SaveFileDialog {
-                CheckFileExists = false,
-                CheckPathExists = true,
-                DefaultExt = "ias",
-                Filter = "IA Stash exports (*.ias)|*.ias|GD Stash exports (*.gds)|*.gds",
-                InitialDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "My Games", "Grim Dawn", "Save"),
-                Title = "Choose filename for export"
-            };
-
-            if (diag.ShowDialog() == DialogResult.OK && !string.IsNullOrEmpty(diag.FileName)) {
-                buttonExport.Enabled = true;
-                var idx = diag.FilterIndex;
-                cbItemSelection.Visible = diag.FilterIndex == (int)FilterType.GDS;
-                this._isGdstashFormat = diag.FileName.EndsWith(".gds");
-                this._filename = diag.FileName;
+        private async void buttonBrowse_Click(object sender, RoutedEventArgs e) {
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel?.StorageProvider == null) {
+                return;
             }
 
-            // For IA exports, we can skip the manual export step, since we dont have the list view to worry about.
-            if (!cbItemSelection.Visible) {
+            var files = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions {
+                    DefaultExtension = "ias",
+                    SuggestedStartLocation = await topLevel.StorageProvider.TryGetFolderFromPathAsync(LinuxConfig.DataDirectory),
+                    FileTypeChoices = new[] {
+                        new FilePickerFileType("IA Stash exports") {Patterns = new[] { "*.ias" }},
+                        new FilePickerFileType("GD Stash exports") {Patterns = new[] { "*.gds" }}},
+                    Title = "Choose filename for export"
+                }
+            );
+
+            if (files != null) {
+                var filename = files.Path.LocalPath;
+                if (!string.IsNullOrEmpty(filename)) {
+                    buttonExport.IsEnabled = true;
+                    _isGdstashFormat = filename.EndsWith(".gds", StringComparison.OrdinalIgnoreCase);
+                    cbItemSelection.IsVisible = _isGdstashFormat;
+                    _filename = filename;
+                }
+            }
+
+            // For IA exports, we can skip the manual export step, since we don't have the list view to worry about.
+            if (_filename != null && !cbItemSelection.IsVisible) {
                 buttonExport_Click(sender, e);
             }
         }
 
-        private void ExportMode_Load(object sender, EventArgs e) {
+        private void ExportMode_Load(object? sender, RoutedEventArgs e) {
             cbItemSelection.Items.Add("All items");
-            cbItemSelection.Items.AddRange(_modSelection);
+
+            foreach (var mod in _modSelection) {
+                cbItemSelection.Items.Add(mod);
+            }
+
             cbItemSelection.SelectedIndex = 0;
-            buttonExport.Enabled = false;
-            cbItemSelection.Visible = false;
-            LocalizationLoader.ApplyLanguage(Controls, RuntimeSettings.Language!);
+            buttonExport.IsEnabled = false;
+            cbItemSelection.IsVisible = false;
+
+            LocalizationLoader.ApplyLanguage(this, RuntimeSettings.Language!);
         }
 
-        private void buttonExport_Click(object sender, EventArgs e) {
-            if (buttonExport.Enabled && _filename != null) {
+        private async void buttonExport_Click(object? sender, RoutedEventArgs e) {
+            if (buttonExport.IsEnabled && _filename != null) {
                 if (_isGdstashFormat) {
                     var io = new GDFileExporter(_filename, string.Empty); // Params are not used for writing
 
@@ -94,9 +108,9 @@ namespace IAGrim.UI.Popups.ImportExport.Panels {
                     var items = _playerItemDao.ListAll();
                     io.Write(items);
                 }
-                
-                MessageBox.Show(RuntimeSettings.Language!.GetTag("iatag_ui_exportsuccess"), RuntimeSettings.Language.GetTag("iatag_ui_exportsuccess"), MessageBoxButtons.OK, MessageBoxIcon.Information);
-                this.onClose();
+
+                await MessageBox.Show(RuntimeSettings.Language!.GetTag("iatag_ui_exportsuccess"), RuntimeSettings.Language.GetTag("iatag_ui_exportsuccess"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+                onClose();
             }
         }
     }

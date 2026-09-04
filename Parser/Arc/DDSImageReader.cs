@@ -1,6 +1,5 @@
 ﻿using System;
-using System.Drawing;
-using System.Drawing.Imaging;
+using SkiaSharp;
 using log4net;
 using System.IO;
 using EvilsoftCommons;
@@ -79,7 +78,12 @@ namespace IAGrim.Parser.Arc {
                             }
 
                             try {
-                                using (var image = Image.FromStream(new MemoryStream(b))) {
+                                using (var image = SKBitmap.Decode(b))
+                                {
+                                    if (image == null) {
+                                        continue;
+                                    }
+
                                     var h = image.Height;
                                     var w = image.Width;
 
@@ -93,7 +97,10 @@ namespace IAGrim.Parser.Arc {
                                         continue;
                                     }
 
-                                    image.Save(imagePath);
+                                    using var skImage = SKImage.FromBitmap(image);
+                                    using var data = skImage.Encode(SKEncodedImageFormat.Png, 100);
+                                    using var output = File.OpenWrite(imagePath);
+                                    data.SaveTo(output);
                                 }
                             }
                             catch (Exception ex) {
@@ -125,7 +132,12 @@ namespace IAGrim.Parser.Arc {
                                 // notices (the managed wrapper is tiny), which is what caused
                                 // out of memory during icon extraction on lower end machines.
                                 using var img = ExtractImage(b);
-                                img?.Save(imagePath, ImageFormat.Png);
+                                if (img != null) {
+                                    using var image = SKImage.FromBitmap(img);
+                                    using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+                                    using var output = File.OpenWrite(imagePath);
+                                    data.SaveTo(output);
+                                }
                             }
                             catch (Exception ex) {
                                 logger.Warn($"Error extracting icon \"{icon}\", {ex.Message}", ex);
@@ -142,7 +154,7 @@ namespace IAGrim.Parser.Arc {
             logger.Debug("Item icon extraction complete");
         }
 
-        public static Image ExtractImage(byte[] bytes) {
+        public static SKBitmap? ExtractImage(byte[] bytes) {
             var size = IOHelper.GetInt(bytes, 8);
             var rawPixels = new byte[size];
             Array.Copy(bytes, 12, rawPixels, 0, rawPixels.Length);
@@ -173,50 +185,23 @@ namespace IAGrim.Parser.Arc {
             return bitmap1;
         }
 
-        private static Bitmap BitmapFromBytes(int width, int height, int[] arr) {
-            var b = new Bitmap(width, height, PixelFormat.Format32bppArgb);
-
-            /*
-                        ColorPalette ncp = b.Palette;
-                        for (int i = 0; i < 256; i++)
-                            ncp.Entries[i] = Color.FromArgb(255, 255 - i, 255 - i, 255 - i);
-                        b.Palette = ncp;*/
-
-            var boundsRect = new Rectangle(0, 0, width, height);
-            var bmpData = b.LockBits(boundsRect,
-                ImageLockMode.WriteOnly,
-                b.PixelFormat);
-            var ptr = bmpData.Scan0;
-            var bytes = bmpData.Width * b.Height;
-
-            // fill in rgbValues, e.g. with a for loop over an input array
-            System.Runtime.InteropServices.Marshal.Copy(arr, 0, ptr, bytes);
-            b.UnlockBits(bmpData);
-
-            return b;
+        private static SKBitmap BitmapFromBytes(int width, int height, int[] arr) {
+            var bitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Unpremul));
+            for (var y = 0; y < height; y++) {
+                for (var x = 0; x < width; x++) {
+                    var argb = arr[y * width + x];
+                    bitmap.SetPixel(x, y, new SKColor((byte)((argb >> 16) & 0xff), (byte)((argb >> 8) & 0xff), (byte)(argb & 0xff), (byte)((argb >> 24) & 0xff)));
+                }
+            }
+            return bitmap;
         }
 
-        private static Bitmap BitmapFromBytes(int width, int height, byte[] arr) {
-            var b = new Bitmap(width, height, PixelFormat.Format32bppPArgb);
-
-            /*
-                        ColorPalette ncp = b.Palette;
-                        for (int i = 0; i < 256; i++)
-                            ncp.Entries[i] = Color.FromArgb(255, 255 - i, 255 - i, 255 - i);
-                        b.Palette = ncp;*/
-
-            var boundsRect = new Rectangle(0, 0, width, height);
-            var bmpData = b.LockBits(boundsRect,
-                ImageLockMode.WriteOnly,
-                b.PixelFormat);
-            var ptr = bmpData.Scan0;
-            var bytes = bmpData.Stride * b.Height;
-
+        private static SKBitmap BitmapFromBytes(int width, int height, byte[] arr) {
+            var bitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Unpremul));
+            var pixels = bitmap.GetPixels();
             // fill in rgbValues, e.g. with a for loop over an input array
-            System.Runtime.InteropServices.Marshal.Copy(arr, 0, ptr, bytes);
-            b.UnlockBits(bmpData);
-
-            return b;
+            System.Runtime.InteropServices.Marshal.Copy(arr, 0, pixels, Math.Min(arr.Length, bitmap.ByteCount));
+            return bitmap;
         }
 
         /*

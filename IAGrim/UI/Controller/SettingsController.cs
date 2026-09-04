@@ -6,11 +6,12 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
-using System.Windows.Forms;
+// using System.Windows.Forms;
 using IAGrim.Settings;
 using IAGrim.Settings.Dto;
 using IAGrim.Utilities;
 using IAGrim.Utilities.HelperClasses;
+using IAGrim.Overwrites.LinuxConfig;
 
 namespace IAGrim.UI.Controller {
     [Obsolete]
@@ -83,36 +84,21 @@ namespace IAGrim.UI.Controller {
                 return s;
         }
 
-        public void BindCheckbox(FirefoxCheckBox control) {
-            string name = StripPrefix(control.Name);
-            control.DataBindings.Add(new Binding("Checked", this, name, false, DataSourceUpdateMode.OnPropertyChanged));
-        }
-
-        public void BindCheckbox(Control control, string property) {
-            control.DataBindings.Add(new Binding("Checked", this, property));
-        }
-
-        public void BindText(Control control) {
-            control.DataBindings.Add(new Binding("Text", this, StripPrefix(control.Name)));
-        }
-
-        public void BindText(Control control, string property) {
-            control.DataBindings.Add(new Binding("Text", this, property));
-        }
-
-        public void DonateNow() {
-            Process.Start(new ProcessStartInfo { FileName = "https://grimdawn.evilsoft.net/?donate", UseShellExecute = true });
+        public void DonateNow()
+        {
+            Process.Start(new ProcessStartInfo{FileName = "https://grimdawn.evilsoft.net/?donate", UseShellExecute = true});
             DateTime dt = DateTime.Now.AddDays(new Random().Next(14, 25));
             _settings.GetLocal().LastNagTimestamp = dt.Ticks;
         }
 
-        public void OpenDataFolder() {
-            Process.Start(new ProcessStartInfo { FileName = "file://" + GlobalPaths.BackupLocation, UseShellExecute = true });
+        public void OpenDataFolder()
+        {
+            Process.Start(new ProcessStartInfo{FileName = GlobalPaths.BackupLocation, UseShellExecute = true});
         }
 
-
-        public void OpenLogFolder() {
-            Process.Start(new ProcessStartInfo { FileName = "file://" + GlobalPaths.CoreFolder, UseShellExecute = true });
+        public void OpenLogFolder()
+        {
+            Process.Start(new ProcessStartInfo{FileName = Path.Combine(LinuxConfig.DataDirectory, "logs"), UseShellExecute = true});
         }
     }
 }

@@ -1,20 +1,16 @@
-﻿using IAGrim.Database.Interfaces;
+﻿using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Threading;
+using IAGrim.Database.Interfaces;
 using IAGrim.Parsers.Arz;
 using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Windows.Forms;
-using IAGrim.Utilities;
 
 namespace IAGrim.UI {
     /// <summary>
     /// Loading screen while parsing player item stats
     /// </summary>
-    public partial class UpdatingPlayerItemsScreen : Form {
+    public partial class UpdatingPlayerItemsScreen : Window {
         private StatUpdateUIBackgroundWorker _worker;
         public bool CanClose { get; set; }
 
@@ -24,6 +20,8 @@ namespace IAGrim.UI {
             CanClose = false;
 
             _worker = new StatUpdateUIBackgroundWorker(playerItemDao, bw_RunWorkerCompleted, bw_ProgressChanged);
+
+            Closing += UpdatingPlayerItemsScreen_FormClosing;
         }
 
         /// <summary>
@@ -32,23 +30,12 @@ namespace IAGrim.UI {
         /// <param name="sender"></param>
         /// <param name="e"></param>
         void bw_ProgressChanged(object? sender, ProgressChangedEventArgs e) {
-            if (this.InvokeRequired) {
-                this.Invoke((MethodInvoker)delegate {
-                    bw_ProgressChanged(sender, e);
-                });
-            }
-            else {
+            Dispatcher.UIThread.Post(() => {
                 if ((int)e.UserState! == 1)
                     this.progressBar2.Maximum = e.ProgressPercentage;
                 else
                     this.progressBar2.Value = e.ProgressPercentage;
-            }
-        }
-
-
-        private void UpdatingPlayerItemsScreen_Load(object sender, EventArgs e) {
-            this.FormClosing += ParsingDatabaseScreen_FormClosing;
-            LocalizationLoader.ApplyLanguage(Controls, RuntimeSettings.Language!);
+            });
         }
 
 
@@ -60,9 +47,8 @@ namespace IAGrim.UI {
             this.Close();
         }
 
-        
 
-        void ParsingDatabaseScreen_FormClosing(object? sender, FormClosingEventArgs e) {
+        void UpdatingPlayerItemsScreen_FormClosing(object? sender, WindowClosingEventArgs e) {
             e.Cancel = !CanClose;
         }
 

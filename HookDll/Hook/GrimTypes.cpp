@@ -8,7 +8,7 @@
 #include <set>
 #include <sstream>
 #include <vector>
-#include <Windows.h>
+#include <windows.h>
 #include <fstream>
 
 namespace GAME {
@@ -143,7 +143,14 @@ namespace GAME {
 /// </summary>
 /// <returns></returns>
 GAME::GameEngine* fnGetGameEngine() {
-	auto gameEngine = (GAME::GameEngine*)*(DWORD_PTR*)GetProcAddressOrLogToFile(L"game.dll", "?gGameEngine@GAME@@3PEAVGameEngine@1@EA");
+	// The export is a pointer *to* the engine pointer, so it has to be dereferenced -- but only once we know it was found. This used to dereference the result of the lookup directly, which takes the game
+	// down with us whenever game.dll is not loaded, instead of reporting "not ready" the way every other path here does. ProcessAttach treats nullptr as "abort the attach".
+	auto slot = (DWORD_PTR*)GetProcAddressOrLogToFile(L"game.dll", "?gGameEngine@GAME@@3PEAVGameEngine@1@EA");
+	if (slot == nullptr) {
+		LogToFile(LogLevel::WARNING, "game.dll export gGameEngine unavailable, the game is not ready to be hooked.");
+		return nullptr;
+	}
+	auto gameEngine = (GAME::GameEngine*)*slot;
 	if (gameEngine == nullptr) {
 		LogToFile(LogLevel::WARNING, "Got game engine nullptr, beware if a crash follows this.");
 	}
@@ -155,7 +162,15 @@ GAME::GameEngine* fnGetGameEngine() {
 /// </summary>
 /// <returns></returns>
 GAME::Engine* fnGetEngine(bool skipLog) {
-	auto engine = (GAME::Engine*)*(DWORD_PTR*)GetProcAddressOrLogToFile(L"engine.dll", "?gEngine@GAME@@3PEAVEngine@1@EA", skipLog);
+	// Same unchecked dereference as fnGetGameEngine above; see the comment there.
+	auto slot = (DWORD_PTR*)GetProcAddressOrLogToFile(L"engine.dll", "?gEngine@GAME@@3PEAVEngine@1@EA", skipLog);
+	if (slot == nullptr) {
+		if (!skipLog) {
+			LogToFile(LogLevel::WARNING, "engine.dll export gEngine unavailable, the game is not ready to be hooked.");
+		}
+		return nullptr;
+	}
+	auto engine = (GAME::Engine*)*slot;
 	if (engine == nullptr) {
 		LogToFile(LogLevel::WARNING, "Got engine nullptr, beware if a crash follows this.");
 	}
@@ -276,8 +291,13 @@ static bool IsFirstLookupOfExport(const char* procAddress) {
 }
 
 void* GetProcAddressOrLogToFile(const wchar_t* dll, char* procAddress, bool skipLog) {
-	void* originalMethod = GetProcAddress(::GetModuleHandle(dll), procAddress);
-	if (originalMethod == NULL) {
+	void* originalMethod = reinterpret_cast<void*>(
+    GetProcAddress(
+        ::GetModuleHandleW(dll),
+        procAddress
+    )
+   );
+   if (originalMethod == NULL) {
 		LogToFile(LogLevel::FATAL, std::string("Error finding export from DLL: ") + std::string(procAddress));
 	}
 	else if (!skipLog && IsFirstLookupOfExport(procAddress)) {

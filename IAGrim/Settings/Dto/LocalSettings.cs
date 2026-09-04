@@ -8,10 +8,11 @@ namespace IAGrim.Settings.Dto {
     public class LocalSettings {
         public event EventHandler? OnMutate;
 
-        private List<string>? _grimDawnLocation;
+        private string? _grimDawnWineUserProfilePath; // TODO List? multiple possible?
+        private List<string> _grimDawnLocation = new();
         private string? _currentGrimdawnLocation;
         private string? _currentGrimdawnMod;
-        private List<string>? _autoParsedExpansions;
+        private List<string> _autoParsedExpansions = new();
         private bool? _preferDelayedSearch;
         private int _backupNumber;
         private long? _lastNagTimestamp;
@@ -34,29 +35,41 @@ namespace IAGrim.Settings.Dto {
         private long? _grimDawnLocationLastModified;
         private bool _startMinimized;
         private DateTime _lastCharSyncUtc;
+        private bool? _useDllHookFiles;
 
         public string? MachineName { get; set; }
 
-        public void AddGrimDawnLocation(string location) {
-            if (_grimDawnLocation == null) {
-                _grimDawnLocation = new List<string>(1);
+        public string GrimDawnWineUserProfilePath {
+            get => _grimDawnWineUserProfilePath ?? string.Empty;
+            set {
+                if (string.IsNullOrWhiteSpace(value)) {
+                    _grimDawnWineUserProfilePath = string.Empty;
+                }
+                else {
+                    var trimmedPath = Path.GetFullPath(value).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    _grimDawnWineUserProfilePath = trimmedPath;
+                }
+                OnMutate?.Invoke(null, EventArgs.Empty);
             }
+        }
 
-            if (!_grimDawnLocation.Contains(location)) {
-                _grimDawnLocation.Add(location);
+        public void AddGrimDawnLocation(string location) {
+            var trimmedLocation = Path.GetFullPath(location).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            if (!_grimDawnLocation.Contains(trimmedLocation)) {
+                _grimDawnLocation.Add(trimmedLocation);
             }
 
             OnMutate?.Invoke(null, EventArgs.Empty);
         }
 
+        [JsonProperty("grimDawnLocation")]
         public List<string> GrimDawnLocation {
-            get => _grimDawnLocation ?? new List<string>();
+            get => _grimDawnLocation;
             set {
-                _grimDawnLocation = value;
+                _grimDawnLocation = value ?? new List<string>();
                 OnMutate?.Invoke(null, EventArgs.Empty);
             }
         }
-
 
         public int BackupNumber {
             get => _backupNumber;
@@ -193,10 +206,11 @@ namespace IAGrim.Settings.Dto {
         /// Prevents re-parsing on every startup when the parse doesn't produce the expected data
         /// (broken install, unsupported game version, ..).
         /// </summary>
+        [JsonProperty("autoParsedExpansions")]
         public List<string> AutoParsedExpansions {
-            get => _autoParsedExpansions ?? new List<string>();
+            get => _autoParsedExpansions;
             set {
-                _autoParsedExpansions = value;
+                _autoParsedExpansions = value ?? new List<string>();
                 OnMutate?.Invoke(null, EventArgs.Empty);
             }
         }
@@ -271,6 +285,14 @@ namespace IAGrim.Settings.Dto {
             get => _lastCharSyncUtc;
             set {
                 _lastCharSyncUtc = value;
+                OnMutate?.Invoke(null, EventArgs.Empty);
+            }
+        }
+
+        public bool UseDllHookFiles {
+            get => _useDllHookFiles ?? true;
+            set {
+                _useDllHookFiles = value;
                 OnMutate?.Invoke(null, EventArgs.Empty);
             }
         }

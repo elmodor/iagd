@@ -6,13 +6,20 @@ import {PureComponent} from "preact/compat";
 
 
 class CharacterListContainer extends PureComponent<object, object> {
+  state: State = {
+    characters: []
+  };
+  async componentDidMount() {
+    const characters = await getBackedUpCharacters();
+    this.setState({characters});
+  }
 
 
   renderCharacter(c: CharacterListDto) {
     const clean = (c: string) => c.startsWith('_') ? c.substr(1) : c;
-    const download = (c: string) => {
+    const download = async (c: string) => {
       console.log('Clickyetyclick');
-      const url = getCharacterDownloadUrl(c);
+      const url = await getCharacterDownloadUrl(c);
 
       console.log(`Backup download URL for ${c} is ${url}`);
       if (url) {
@@ -38,7 +45,7 @@ class CharacterListContainer extends PureComponent<object, object> {
   }
 
   render() {
-    const characters = getBackedUpCharacters();
+    const characters = this.sate;
     return <div className="characters">
       <h1>Backed up characters</h1>
       <ul>

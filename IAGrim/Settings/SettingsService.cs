@@ -5,6 +5,7 @@ using IAGrim.Settings.Dto;
 using log4net;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using IAGrim.Overwrites.HookSettings;
 
 namespace IAGrim.Settings {
     public class SettingsService {
@@ -61,6 +62,7 @@ namespace IAGrim.Settings {
             string json = JsonConvert.SerializeObject(_data, Formatting.Indented, Settings);
             try {
                 File.WriteAllText(_persistentStorage, json);
+                HookSettingsWriter.Persist(GetLocal(), GetPersistent());
                 _numSequentialErrors = 0;
             }
             catch (Exception ex) {
@@ -91,7 +93,7 @@ namespace IAGrim.Settings {
                 }
             }
 
-            Logger.Info("Could not find settings JSON, defaulting to no settings.");
+            Logger.Warn("Could not find settings JSON, defaulting to no settings.");
             return new SettingsService(new SettingsTemplate {
                 Local = new LocalSettings { MachineName = Environment.MachineName },
                 Persistent = new PersistentSettings {

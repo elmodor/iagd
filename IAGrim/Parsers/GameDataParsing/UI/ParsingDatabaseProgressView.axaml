@@ -1,0 +1,72 @@
+<Window
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:Class="IAGrim.Parsers.GameDataParsing.UI.ParsingDatabaseProgressView"
+    Width="567"
+    Height="338"
+    MinWidth="567"
+    MinHeight="338"
+    CanResize="False"
+    ShowInTaskbar="False"
+    WindowStartupLocation="CenterScreen"
+    Tag = "iatag_ui_parsingdb"
+    Title="Parsing database..">
+
+    <Border BorderBrush="{DynamicResource IAGrimWindowBorder}" BorderThickness="1">
+    <GroupBox Margin="17,15" Tag="iatag_ui_parsing_gd_resources" Header="Parsing Grim Dawn resources..">
+        <Grid Margin="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Grid.RowDefinitions>
+                <RowDefinition Height="25"/>
+                <RowDefinition Height="25"/>
+                <RowDefinition Height="25"/>
+                <RowDefinition Height="25"/>
+                <RowDefinition Height="25"/>
+                <RowDefinition Height="25"/>
+                <RowDefinition Height="25"/>
+                <RowDefinition Height="25"/>
+                <RowDefinition Height="25"/>
+                <RowDefinition Height="25"/>
+                <RowDefinition Height="25"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Tag="iatag_ui_loading_tags" Text="Loading tags"/>
+            <ProgressBar x:Name="progressLoadingTags" Minimum="0" Maximum="100" Grid.Row="0" Grid.Column="1"/>
+
+            <TextBlock Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Tag="iatag_ui_saving_tags" Text="Saving tags"/>
+            <ProgressBar x:Name="progressSavingTags" Minimum="0" Maximum="100" Grid.Row="1" Grid.Column="1"/>
+
+            <TextBlock Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Tag="iatag_ui_loading_items" Text="Loading Items"/>
+            <ProgressBar x:Name="progressLoadingItems" Minimum="0" Maximum="100" Grid.Row="2" Grid.Column="1"/>
+
+            <TextBlock Grid.Row="3" Grid.Column="0" VerticalAlignment="Center" Tag="iatag_ui_mapping_item_names" Text="Mapping item names"/>
+            <ProgressBar x:Name="progressMappingItemNames" Minimum="0" Maximum="100" Grid.Row="3" Grid.Column="1"/>
+
+            <TextBlock Grid.Row="4" Grid.Column="0" VerticalAlignment="Center" Tag="iatag_ui_preparing_pet_stats" Text="Preparing pet stats"/>
+            <ProgressBar x:Name="progressMappingPetStats" Minimum="0" Maximum="100" Grid.Row="4" Grid.Column="1"/>
+
+            <TextBlock Grid.Row="5" Grid.Column="0" VerticalAlignment="Center" Tag="iatag_ui_saving_items" Text="Saving items"/>
+            <ProgressBar x:Name="progressSaveItems" Minimum="0" Maximum="100" Grid.Row="5" Grid.Column="1"/>
+
+            <TextBlock Grid.Row="6" Grid.Column="0" VerticalAlignment="Center" Tag="iatag_ui_indexing_items" Text="Indexing items"/>
+            <ProgressBar x:Name="progressIndexItems" Minimum="0" Maximum="100" Grid.Row="6" Grid.Column="1"/>
+
+            <TextBlock Grid.Row="7" Grid.Column="0" VerticalAlignment="Center" Tag="iatag_ui_generating_special_stats" Text="Generating special stats"/>
+            <ProgressBar x:Name="progressGeneratingSpecialStats" Minimum="0" Maximum="100" Grid.Row="7" Grid.Column="1"/>
+
+            <TextBlock Grid.Row="8" Grid.Column="0" VerticalAlignment="Center" Tag="iatag_ui_saving_special_stats" Text="Saving special stats"/>
+            <ProgressBar x:Name="progressSavingSpecialStats" Minimum="0" Maximum="100" Grid.Row="8" Grid.Column="1"/>
+
+            <TextBlock Grid.Row="9" Grid.Column="0" VerticalAlignment="Center" Tag="iatag_ui_generating_skills" Text="Generating skills"/>
+            <ProgressBar x:Name="progressGeneratingSkills" Minimum="0" Maximum="100" Grid.Row="9" Grid.Column="1"/>
+
+            <TextBlock Grid.Row="10" Grid.Column="0" VerticalAlignment="Center" Tag="iatag_ui_skills_sanity" Text="Skills sanity check"/>
+            <ProgressBar x:Name="progressSkillCorrectnessCheck" Minimum="0" Maximum="100" Grid.Row="10" Grid.Column="1"/>
+        </Grid>
+    </GroupBox>
+    </Border>
+</Window>

@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows.Forms;
+// using System.Windows.Forms;
 using DataAccess;
 using EvilsoftCommons;
 using IAGrim.Database;
@@ -16,6 +16,7 @@ using IAGrim.Utilities;
 using StatTranslator;
 using log4net;
 using log4net.Repository.Hierarchy;
+using IAGrim.Overwrites.MessageBox;
 
 namespace IAGrim.Parsers.GameDataParsing.Service {
     class ArzParsingWrapper {
@@ -48,8 +49,8 @@ namespace IAGrim.Parsers.GameDataParsing.Service {
                 }
             }
             catch (ArgumentException ex) {
-                Logger.Warn(ex.Message, ex);
-                MessageBox.Show(RuntimeSettings.Language?.GetTag("iatag_ui_corrupted") ?? string.Empty);
+                Logger.Warn(RuntimeSettings.Language?.GetTag("iatag_ui_corrupted") ?? "Unable to parse the ARZ file because it appears to be corrupted.", ex);
+                _ = MessageBox.Show(RuntimeSettings.Language?.GetTag("iatag_ui_corrupted") ?? string.Empty, "IAGD", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 throw;
             }
 

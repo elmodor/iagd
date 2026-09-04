@@ -1,13 +1,12 @@
-#include "stdafx.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include "MessageType.h"
-#include <detours.h>
 #include "GetPrivateStash.h"
 #include "Exports.h"
 #include <codecvt> // wstring_convert
 #include "Logger.h"
 #include "GrimTypes.h"
+#include "MinHook.h"
 
 HANDLE GetPrivateStash::m_hEvent;
 DataQueue* GetPrivateStash::m_dataQueue;
@@ -15,16 +14,46 @@ GetPrivateStash::OriginalMethodPtr GetPrivateStash::originalMethod;
 void* GetPrivateStash::privateStashSack;
 
 void GetPrivateStash::EnableHook() {
-	originalMethod = (OriginalMethodPtr)GetProcAddressOrLogToFile(L"Game.dll", GET_PRIVATE_STASH);
-	if (originalMethod == NULL) {
-		// Instaloot needs the private stash sack pointer; failure is logged but no longer reported to the client.
-		LogToFile(LogLevel::FATAL, L"Failed to hook GetPrivateStash, instaloot private-stash deposits will not work");
-	}
-	
-	DetourTransactionBegin();
-	DetourUpdateThread(GetCurrentThread());
-	DetourAttach((PVOID*)&originalMethod, HookedMethod64);
-	DetourTransactionCommit();
+    originalMethod = (OriginalMethodPtr)GetProcAddressOrLogToFile(
+        L"Game.dll",
+        GET_PRIVATE_STASH
+    );
+
+    if (originalMethod == NULL) {
+        LogToFile(
+            LogLevel::FATAL,
+            L"Failed to hook GetPrivateStash, instaloot private-stash deposits will not work"
+        );
+        return;
+    }
+
+    LPVOID target = reinterpret_cast<LPVOID>(originalMethod);
+
+    MH_STATUS status = MH_CreateHook(
+        target,
+        reinterpret_cast<LPVOID>(HookedMethod64),
+        reinterpret_cast<LPVOID*>(&originalMethod)
+    );
+
+    if (status != MH_OK) {
+        LogToFile(
+            LogLevel::FATAL,
+            L"Failed to create MinHook hook for GetPrivateStash"
+        );
+        return;
+    }
+
+    status = MH_EnableHook(target);
+
+    if (status != MH_OK) {
+        LogToFile(
+            LogLevel::FATAL,
+            L"Failed to enable MinHook hook for GetPrivateStash"
+        );
+
+        MH_RemoveHook(target);
+        return;
+    }
 }
 
 GetPrivateStash::GetPrivateStash(DataQueue* dataQueue, HANDLE hEvent) {
@@ -36,13 +65,6 @@ GetPrivateStash::GetPrivateStash(DataQueue* dataQueue, HANDLE hEvent) {
 GetPrivateStash::GetPrivateStash() {
 	GetPrivateStash::m_hEvent = NULL;
 	GetPrivateStash::privateStashSack = NULL;
-}
-
-void GetPrivateStash::DisableHook() {
-	LONG res1 = DetourTransactionBegin();
-	LONG res2 = DetourUpdateThread(GetCurrentThread());
-	DetourDetach((PVOID*)&originalMethod, HookedMethod64);
-	DetourTransactionCommit();
 }
 
 void* GetPrivateStash::GetPrivateStashInventorySack() {

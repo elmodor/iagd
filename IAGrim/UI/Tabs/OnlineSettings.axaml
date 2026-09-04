@@ -1,0 +1,85 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    x:Class="IAGrim.UI.Tabs.OnlineSettings">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="14" Spacing="3">
+            <Border Name="onlineBackup" CornerRadius="4" Padding="10">
+                <Grid RowDefinitions="40,*">
+                    <Grid Grid.Row="0">
+                        <TextBlock Text="Cloud Backup" Tag="iatag_ui_online_backup" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Button Name="lbWhatIsCloudBackup" Tag="iatag_ui_whatisthis" Content="What is this?" HorizontalAlignment="Right" VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Click="linkLabel1_LinkClicked_1"/>
+                    </Grid>
+
+                    <Grid Grid.Row="1" ColumnDefinitions="*,478" ColumnSpacing="10">
+                        <StackPanel Grid.Column="0" VerticalAlignment="Top" Spacing="8">
+                            <Button Name="buttonLogin" Tag="iatag_ui_login" Content="Login" Width="286" HorizontalAlignment="Left" Click="firefoxButton1_Click"/>
+                            <CheckBox Name="cbDontWantBackups" Tag="iatag_ui_dontwantbackups" Content="I don't want online features, stop asking me!" IsCheckedChanged="cbDontWantBackups_CheckedChanged"/>
+                        </StackPanel>
+
+                        <GroupBox Name="groupBoxBackupDetails" Grid.Column="1" Tag="iatag_ui_backup_details" Header="Details">
+                            <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="Auto,*,Auto" Margin="5">
+                                <TextBlock Name="label1" Grid.Row="0" Grid.Column="0" Tag="iatag_ui_backup_status_label" Text="Status:" Margin="0,5,8,5"/>
+                                <TextBlock Name="labelStatus" Grid.Row="0" Grid.Column="1" Text="-----" Margin="0,5"/>
+                                <Button Name="btnRefreshBackupDetails" Grid.Row="0" Grid.Column="2" Content="↻" Width="37" Height="37" Click="btnRefreshBackupDetails_Click"/>
+
+                                <TextBlock Name="lbBuddyId" Grid.Row="1" Grid.Column="0" Tag="iatag_ui_backup_buddy_id" Text="BuddyId:" Margin="0,5,8,5"/>
+                                <Button Name="labelBuddyId" Grid.Row="1" Grid.Column="1" Content="-----" HorizontalContentAlignment="Left" Background="Transparent" BorderThickness="0" Padding="0" Click="labelBuddyId_Click"/>
+
+                                <Button Name="linkViewCharacters"
+                                        Grid.Row="2"
+                                        Grid.Column="0"
+                                        Tag="iatag_ui_backup_viewcharacters"
+                                        Content="View Characters"
+                                        HorizontalAlignment="Left"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Padding="0"
+                                        Click="linkViewCharacters_LinkClicked"/>
+
+                                <StackPanel Grid.Row="2" Grid.Column="2" Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                                    <Button Name="linkLogout" Tag="iatag_ui_backup_logout" Content="Logout" Background="Transparent" BorderThickness="0" Padding="0" Click="linkLabel1_LinkClicked"/>
+                                    <Button Name="linkDeleteBackup" Tag="iatag_ui_backup_delete" Content="Delete backup" Background="Transparent" BorderThickness="0" Padding="0" Click="linkDeleteBackup_LinkClicked"/>
+                                </StackPanel>
+                            </Grid>
+                        </GroupBox>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <Border Name="pbBuddyItems" CornerRadius="4" Padding="10">
+                <Grid RowDefinitions="40,Auto,Auto,Auto" RowSpacing="8">
+                    <Grid Grid.Row="0">
+                        <TextBlock Text="Buddies" Tag="iatag_ui_buddies" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Button Name="helpWhatIsThis" Tag="iatag_ui_whatisthis" Content="What is this?" HorizontalAlignment="Left" Margin="125,0,0,0" VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Click="helpWhatIsThis_LinkClicked"/>
+                    </Grid>
+                    <DataGrid x:Name="buddyList" x:CompileBindings="False" Grid.Row="1" Height="150" AutoGenerateColumns="False" CanUserResizeColumns="True" IsReadOnly="True" SelectionMode="Single">
+                        <DataGrid.Columns>
+                        <DataGridTextColumn Header="Buddy" Tag="iatag_ui_buddy_header_buddy" Binding="{Binding Buddy}" Width="*"/>
+                        <DataGridTextColumn Header="Items" Tag="iatag_ui_buddy_header_items" Binding="{Binding Items}" Width="120"/>
+                        <DataGridTextColumn Header="Visible/Active" Tag="iatag_ui_buddy_header_isvisible" Binding="{Binding Visible}" Width="150"/>
+                        </DataGrid.Columns>
+                        <DataGrid.ContextMenu>
+                            <ContextMenu Name="buddyItemListContextMenu" Tag="iatag_ui_ctxmenu">
+                                <MenuItem Name="showToolStripMenuItem" Tag="iatag_ui_ctxmenu_show" Header="Show" Click="showToolStripMenuItem_Click"/>
+                                <MenuItem Name="hideToolStripMenuItem" Tag="iatag_ui_ctxmenu_hide" Header="Hide" Click="hideToolStripMenuItem_Click"/>
+                                <MenuItem Name="editToolStripMenuItem" Tag="iatag_ui_ctxmenu_edit" Header="Edit" Click="editToolStripMenuItem_Click"/>
+                                <MenuItem Name="deleteToolStripMenuItem" Tag="iatag_ui_ctxmenu_delete" Header="Delete" Click="deleteToolStripMenuItem_Click"/>
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
+                    </DataGrid>
+
+                    <Grid Grid.Row="2" ColumnDefinitions="*,*,*,*" ColumnSpacing="4">
+                        <Button Name="btnAddBuddy" Grid.Column="0" Tag="iatag_ui_buddy_add" Content="Add buddy" Click="btnAddBuddy_Click"/>
+                        <Button Name="btnModifyBuddy" Grid.Column="1" Tag="iatag_ui_buddy_modify" Content="Modify buddy" Click="btnModifyBuddy_Click"/>
+                        <Button Name="btnDeleteBuddy" Grid.Column="2" Tag="iatag_ui_buddy_delete" Content="Delete buddy" Click="btnDeleteBuddy_Click"/>
+                        <Button Name="btnToggleBuddyVisibility" Grid.Column="3" Tag="iatag_ui_buddy_toggle" Content="Toggle visibility" Click="btnToggleBuddyVisibility_Click"/>
+                    </Grid>
+
+                    <TextBlock Name="label2" Grid.Row="3" Tag="iatag_ui_buddy_descriptive_help_text" Text="Buddy items lets you see which items your friends have." TextWrapping="Wrap" Margin="0,2,0,5"/>
+                </Grid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

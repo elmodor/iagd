@@ -1,0 +1,24 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theme="using:IAGrim.Theme"
+             x:Class="IAGrim.UI.Filters.Damage">
+
+    <Border Padding="4">
+        <StackPanel Spacing="2">
+            <TextBlock Text="Damage" Tag="iatag_ui_damage" FontWeight="Bold" Margin="4,4,4,8"/>
+
+            <theme:FirefoxCheckBox Name="dmgPhysical" Tag="iatag_ui_physical" Content="Physical"/>
+            <theme:FirefoxCheckBox Name="dmgPiercing" Tag="iatag_ui_piercing" Content="Piercing"/>
+            <theme:FirefoxCheckBox Name="dmgFire" Tag="iatag_ui_fire" Content="Fire"/>
+            <theme:FirefoxCheckBox Name="dmgCold" Tag="iatag_ui_cold" Content="Cold"/>
+            <theme:FirefoxCheckBox Name="dmgLightning" Tag="iatag_ui_lightning" Content="Lightning"/>
+            <theme:FirefoxCheckBox Name="dmgAether" Tag="iatag_ui_aether" Content="Aether"/>
+            <theme:FirefoxCheckBox Name="dmgVitality" Tag="iatag_ui_vitality" Content="Vitality"/>
+            <theme:FirefoxCheckBox Name="dmgChaos" Tag="iatag_ui_chaos" Content="Chaos"/>
+            <theme:FirefoxCheckBox Name="dmgAcid" Tag="iatag_ui_acid" Content="Acid"/>
+            <theme:FirefoxCheckBox Name="dmgElemental" Tag="iatag_ui_elemental" Content="Elemental"/>
+            <theme:FirefoxCheckBox Name="dmgRetaliation" Tag="iatag_ui_retaliation" Content="Retaliation"/>
+            <theme:FirefoxCheckBox Name="totalDamage" Tag="iatag_ui_totaldmg" Content="All Damage"/>
+        </StackPanel>
+    </Border>
+</UserControl>

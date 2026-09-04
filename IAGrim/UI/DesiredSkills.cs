@@ -1,15 +1,17 @@
-﻿using IAGrim.Database.Interfaces;
+﻿using Avalonia.Controls;
+using Avalonia.LogicalTree;
+using IAGrim.Database.Interfaces;
+using IAGrim.Services.ItemStats;
+using IAGrim.Theme;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
 using System.Text.RegularExpressions;
-using System.Windows.Forms;
-using IAGrim.Theme;
 
 namespace IAGrim.UI
+
 {
-    partial class DesiredSkills : AutoSizeForm {
+    internal partial class DesiredSkills : UserControl {
         private readonly Filters.Misc _miscFilter = new Filters.Misc();
         private readonly Filters.Damage _damageFilter = new Filters.Damage();
         private readonly Filters.DamageOverTimeFilter _dotFilter = new Filters.DamageOverTimeFilter();
@@ -19,21 +21,10 @@ namespace IAGrim.UI
         public DesiredSkills(IItemTagDao itemTagDao) {
             InitializeComponent();
 
-            var damageFilterControl = _damageFilter.Controls[0];
-            damageFilterControl.Location = new Point(12, 9);
-            Controls.Add(damageFilterControl);
-
-            var dotFilterControl = _dotFilter.Controls[0];
-            dotFilterControl.Location = new Point(12, 451);
-            Controls.Add(dotFilterControl);
-
-            var miscFilterControl = _miscFilter.Controls[0];
-            miscFilterControl.Location = new Point(12, 723);
-            Controls.Add(miscFilterControl);
-
-            var resistanceFilterControl = _resistanceFilters.Controls[0];
-            resistanceFilterControl.Location = new Point(12, 1275);
-            Controls.Add(resistanceFilterControl);
+            DamageFilter.Content = _damageFilter;
+            DamageOverTimeFilter.Content = _dotFilter;
+            MiscFilter.Content = _miscFilter;
+            ResistanceFilter.Content = _resistanceFilters;
 
             // Classes
             var classTags = itemTagDao.GetValidClassItemTags()
@@ -41,10 +32,9 @@ namespace IAGrim.UI
                 .ToList();
 
             _classesFilters = new Filters.Classes(classTags);
+            ClassesFilter.Content = _classesFilters;
 
-            var classesFilterControl = _classesFilters.Controls[0];
-            classesFilterControl.Location = new Point(12, 1693);
-            Controls.Add(classesFilterControl);
+            InitControlsRecursive(this);
         }
 
         public FilterEventArgs Filters =>
@@ -64,7 +54,6 @@ namespace IAGrim.UI
             };
 
         public event EventHandler<FilterEventArgs>? OnChanged;
-
 
         /// <summary>
         /// Get the desired skills to filter by
@@ -108,52 +97,44 @@ namespace IAGrim.UI
         /// </summary>
         public void ClearFilters()
         {
-            ClearFilters(Controls);
+            ClearFiltersRecursive(this);
         }
 
-        private void DesiredSkills_Load(object sender, EventArgs e)
+        private void InitControlsRecursive(ILogical root)
         {
-            Dock = DockStyle.Fill;
-            _dotFilter.DamageOverTimeFilter_Load(sender, e);
-            _miscFilter.Misc_Load(sender, e);
-            _classesFilters.Classes_Load(sender, e);
-
-            InitControlsRecursive(Controls);
-
-        }
-
-        private void InitControlsRecursive(Control.ControlCollection coll)
-        {
-            foreach (Control c in coll)
+            foreach (var c in root.GetLogicalChildren())
             {
                 if (c is FirefoxCheckBox cb)
                 {
-                    cb.CheckedChanged += (sender, e) =>
+                    cb.PropertyChanged += (sender, e) =>
                     {
-                        var handler = OnChanged;
-
-                        // Only search if the user desires auto search (probably 99%)
-                        handler?.Invoke(this, Filters);
+                        if (e.Property == CheckBox.IsCheckedProperty)
+                        {
+                           // Only search if the user desires auto search (probably 99%)
+                            OnChanged?.Invoke(this, Filters);
+                        }
                     };
 
                     // Setting/removing a numeric stat filter must also re-run the search.
                     cb.FilterChanged += (sender, e) => OnChanged?.Invoke(this, Filters);
                 }
 
-                InitControlsRecursive(c.Controls);
+                if (c is ILogical logical)
+                    InitControlsRecursive(logical);
             }
         }
 
-        private void ClearFilters(Control.ControlCollection coll)
+        private void ClearFiltersRecursive(ILogical root)
         {
-            foreach (Control c in coll)
+            foreach (var c in root.GetLogicalChildren())
             {
                 if (c is FirefoxCheckBox cb)
                 {
-                    cb.Checked = false;
+                    cb.IsChecked = false;
                 }
 
-                ClearFilters(c.Controls);
+                if (c is ILogical logical)
+                    ClearFiltersRecursive(logical);
             }
         }
     }

@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/tests/">
+    <Project Path="tests/Cloud.Tests/Cloud.Tests.csproj" />
+    <Project Path="tests/DataAccess.Tests/DataAccess.Tests.csproj" />
+    <Project Path="tests/EvilsoftCommons.Tests/EvilsoftCommons.Tests.csproj" />
+    <Project Path="tests/Parser.Tests/Parser.Tests.csproj" />
+    <Project Path="tests/StatTranslator.Tests/StatTranslator.Tests.csproj" />
+  </Folder>
+  <Project Path="Cloud/Cloud.csproj" />
+  <Project Path="DataAccess/DataAccess.csproj" />
+  <Project Path="EvilsoftCommons/EvilsoftCommons.csproj" />
+  <Project Path="Parser/Parser.csproj" />
+  <Project Path="StatTranslator/StatTranslator.csproj" />
+</Solution>

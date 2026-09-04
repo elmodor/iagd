@@ -1,0 +1,10 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="IAGrim.UI.Popups.ImportExport.Panels.ImportExportModePicker"
+             Loaded="ImportExportModePicker_Loaded">
+
+    <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="24" VerticalAlignment="Center">
+        <Button x:Name="buttonImport" Grid.Column="0" Tag="iatag_ui_import" Content="Import" MinHeight="50" MinWidth="100" Click="buttonImport_Click" />
+        <Button x:Name="buttonExport" Grid.Column="1" Tag="iatag_ui_export" Content="Export" MinHeight="50" MinWidth="100" Click="buttonExport_Click" />
+    </Grid>
+</UserControl>

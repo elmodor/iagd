@@ -1,0 +1,14 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="IAGrim.UI.DesiredSkills">
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="8" Spacing="8">
+            <ContentControl Name="DamageFilter" />
+            <ContentControl Name="DamageOverTimeFilter" />
+            <ContentControl Name="MiscFilter" />
+            <ContentControl Name="ResistanceFilter" />
+            <ContentControl Name="ClassesFilter" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

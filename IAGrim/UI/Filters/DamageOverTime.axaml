@@ -1,0 +1,20 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theme="using:IAGrim.Theme"
+             x:Class="IAGrim.UI.Filters.DamageOverTimeFilter">
+
+    <Border Padding="4">
+        <StackPanel Spacing="2">
+            <TextBlock Text="Damage Over Time" Tag="iatag_ui_dot" FontWeight="Bold" Margin="4,4,4,8"/>
+
+            <theme:FirefoxCheckBox x:Name="dmgBleeding" Tag="iatag_ui_bleeding" Content="Bleeding"/>
+            <theme:FirefoxCheckBox x:Name="dmgTrauma" Tag="iatag_ui_trauma" Content="Internal Trauma"/>
+            <theme:FirefoxCheckBox x:Name="dmgBurn" Tag="iatag_ui_burn" Content="Burn"/>
+            <theme:FirefoxCheckBox x:Name="dmgFrost" Tag="iatag_ui_frost" Content="Frostburn"/>
+            <theme:FirefoxCheckBox x:Name="dmgElectrocute" Tag="iatag_ui_electrocute" Content="Electrocute"/>
+            <theme:FirefoxCheckBox x:Name="dmgVitalityDecay" Tag="iatag_ui_decay" Content="Vitality Decay"/>
+            <theme:FirefoxCheckBox x:Name="dmgLifeLeech" Tag="iatag_ui_lifeleech" Content="Life Leech"/>
+            <theme:FirefoxCheckBox x:Name="dmgPoison" Tag="iatag_ui_poison" Content="Poison"/>
+        </StackPanel>
+    </Border>
+</UserControl>

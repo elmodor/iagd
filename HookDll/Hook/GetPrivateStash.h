@@ -14,7 +14,6 @@ public:
 	GetPrivateStash();
 	GetPrivateStash(DataQueue* dataQueue, HANDLE hEvent);
 	void EnableHook() override;
-	void DisableHook() override;
 
 	void* GetPrivateStashInventorySack();
 

@@ -133,11 +133,8 @@
         }
 
         public bool IsRunningInWine {
-            get => _isRunningInWine ?? false;
-            set {
-                _isRunningInWine = value;
-                OnMutate?.Invoke(null, EventArgs.Empty);
-            }
+            // we need the native/linux handling for the app and hook, so this is more a "is linux"
+            get => true;
         }
 
         /// <summary>Set the first time a numeric stat filter is applied; suppresses the introduction banner.</summary>

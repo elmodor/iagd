@@ -1,398 +1,255 @@
-﻿using DllInjector;
+using Avalonia;
+using Avalonia.Styling;
+using System.Text;
+using System.Globalization;
+using Avalonia.Controls;
+using Avalonia.Platform;
+using Avalonia.Threading;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+
 using EvilsoftCommons;
-using EvilsoftCommons.Cloud;
-using EvilsoftCommons.DllInjector;
 using EvilsoftCommons.Exceptions;
-using EvilsoftCommons.SingleInstance;
-using IAGrim.Backup.Cloud.CefSharp.Events;
-using IAGrim.Backup.Cloud.Service;
-using IAGrim.Backup.Cloud.Util;
-using IAGrim.BuddyShare;
-using IAGrim.Database;
-using IAGrim.Database.Interfaces;
+using EvilsoftCommons.Cloud;
 using IAGrim.Parsers.Arz;
-using IAGrim.Parsers.GameDataParsing.Service;
 using IAGrim.Parsers.TransferStash;
+using IAGrim.Parsers.GameDataParsing.Service;
 using IAGrim.Services;
 using IAGrim.Services.ItemReplica;
 using IAGrim.Services.ItemStats;
-using IAGrim.Services.MessageProcessor;
-using IAGrim.Settings;
-using IAGrim.UI.Controller;
-using IAGrim.UI.Misc;
+using IAGrim.Database.Interfaces;
 using IAGrim.UI.Misc.CEF;
-using IAGrim.UI.Popups;
+using IAGrim.UI.Controller;
 using IAGrim.UI.Tabs;
-using IAGrim.Utilities;
+using IAGrim.UI;
+using IAGrim.Services.MessageProcessor;
+using IAGrim.Overwrites.RegisterWindowDataAndType;
+using IAGrim.Backup.Cloud.Service;
+using IAGrim.Backup.Cloud.CefSharp.Events;
+using IAGrim.Backup.Cloud.Util;
+using IAGrim.BuddyShare;
 using IAGrim.Utilities.Cloud;
-using IAGrim.Utilities.HelperClasses;
+
+using System.IO;
+using IAGrim.Settings;
+
+using IAGrim.Utilities;
+using IAGrim.Database;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using IAGrim.UI.Misc;
+
 using log4net;
-using Microsoft.Web.WebView2.Core;
-using System.Collections.Generic;
-using System.ComponentModel;
+using IAGrim.Overwrites.MessageBox;
+using IAGrim.Overwrites;
 
-namespace IAGrim.UI {
-    public partial class MainWindow : Form {
-        private static readonly ILog Logger = LogManager.GetLogger(typeof(MainWindow));
+namespace IAGrim.Linux;
 
-        /// <summary>Users with fewer items than this are still getting set up, and don't need the numeric filter introduction.</summary>
-        private const int NumericFilterBannerMinItems = 450;
+internal sealed class JavaScriptMessage
+{
+    [JsonProperty("id")]
+    public string? Id { get; init; }
+    [JsonProperty("method")]
+    public string? Method { get; init; }
+    [JsonProperty("args")]
+    public JToken[]? Args { get; init; }
+}
 
-        private readonly CefBrowserHandler _cefBrowserHandler;
-        private readonly ISettingsReadController _settingsController;
-        private readonly ServiceProvider _serviceProvider;
-        private readonly TooltipHelper _tooltipHelper = new TooltipHelper();
-        private readonly UsageStatisticsReporter _usageStatisticsReporter = new UsageStatisticsReporter();
-        private readonly AutomaticUpdateChecker _automaticUpdateChecker;
-        private CharacterBackupService? _charBackupService;
+public partial class MainWindow : Window
+{
+    private readonly JsonSerializerSettings _serializerSettings =
+        new JsonSerializerSettings {
+            ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+            Culture = System.Globalization.CultureInfo.InvariantCulture,
+            ContractResolver =
+                new Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver(),
+            NullValueHandling = NullValueHandling.Ignore
+        };
 
-        private readonly List<IMessageProcessor> _messageProcessors = new List<IMessageProcessor>();
+    private static readonly ILog Logger = LogManager.GetLogger(typeof(MainWindow));
 
-        private SplitSearchWindow? _searchWindow;
-        private DarkMode? _darkMode;
+    /// <summary>Users with fewer items than this are still getting set up, and don't need the numeric filter introduction.</summary>
+    private const int NumericFilterBannerMinItems = 450;
 
-        private CsvFileMonitor? _csvFileMonitor = new CsvFileMonitor();
-        private CsvFileMonitor? _replicaCsvFileMonitor = new CsvFileMonitor();
-        private ItemReplicaRequesterService? _itemReplicaService;
-        private ItemStatPrecomputeService? _itemStatPrecomputeService;
+    private readonly CefBrowserHandler _cefBrowserHandler;
+    private readonly ISettingsReadController _settingsController;
+    private readonly ServiceProvider _serviceProvider;
+    private readonly ParsingService _parsingService;
+    private readonly UserFeedbackService _userFeedbackService;
+    private readonly SearchController _searchController;
+    private readonly AutomaticUpdateChecker _automaticUpdateChecker;
+    private readonly List<IMessageProcessor> _messageProcessors = new List<IMessageProcessor>();
+    private readonly NativeWebView _webView;
+    private CharacterBackupService? _charBackupService;
+    private BackupServiceWorker? _backupServiceWorker;
+    private WebSocketSyncService? _webSocketSyncService;
+    private AuthService? _authService;
+    private SplitSearchWindow? _searchWindow;
+    private ModsDatabaseConfig? _modsDatabaseConfigTab;
+    private ItemTransferController? _transferController;
+    private ItemReplicaParser? _itemReplicaParser;
+    private ItemStatPrecomputeService? _itemStatPrecomputeService;
+    private CsvParsingService? _csvParsingService;
+    private CsvFileMonitor? _csvFileMonitor = new CsvFileMonitor();
+    private CsvFileMonitor? _replicaCsvFileMonitor = new CsvFileMonitor();
+    private ItemReplicaRequesterService? _itemReplicaService;
 
-        private Action<RegisterWindow.DataAndType>? _registerWindowDelegate;
-        private RegisterWindow? _window;
-        private InjectionHelper? _injector;
-        private ProgressChangedEventHandler? _injectorCallbackDelegate;
-        private CsvParsingService? _csvParsingService;
-        private ItemReplicaParser? _itemReplicaParser;
+    private BuddyItemsService? _buddyItemsService;
+    private BackgroundTask? _backupBackgroundTask;
+    private DispatcherTimer? _wineMessageTimer;
 
-        private BuddyItemsService? _buddyItemsService;
-        private BackgroundTask? _backupBackgroundTask;
-        private ItemTransferController? _transferController;
-        private readonly ParsingService _parsingService;
-        private AuthService? _authService;
-        private BackupServiceWorker? _backupServiceWorker;
-        private WebSocketSyncService? _webSocketSyncService;
-        private readonly UserFeedbackService _userFeedbackService;
-        private MinimizeToTrayHandler? _minimizeToTrayHandler;
-        private ModsDatabaseConfig? _modsDatabaseConfigTab;
-        private System.Windows.Forms.Timer? _wineMessageTimer;
-        public static int NumInstantSyncItemCount = 300;
+    public MainWindow(
+        ServiceProvider serviceProvider,
+        ParsingService parsingService
+    )
+    {
+        _webView = new NativeWebView();
+        _serviceProvider = serviceProvider;
+        var settingsService = _serviceProvider.Get<SettingsService>();
+        _cefBrowserHandler = new CefBrowserHandler(settingsService, () => MainTabStrip.SelectedIndex = 0);
+        _cefBrowserHandler.Initialize(script => _webView.InvokeScript(script));
+        _searchController = _serviceProvider.Get<SearchController>();
+        InitializeComponent();
+        Closing += MainWindow_Closing;
 
+        // TODO
+        // _minimizeToTrayHandler = new MinimizeToTrayHandler(this, notifyIcon1, serviceProvider.Get<SettingsService>());
 
-        #region Stash Status
+        _automaticUpdateChecker = new AutomaticUpdateChecker(settingsService);
+        _settingsController = new SettingsController(settingsService);
+        _parsingService = parsingService;
+        _userFeedbackService = new UserFeedbackService(_cefBrowserHandler);
 
-        // TODO: TEMPORARY FIX!
-        private bool _hasShownStashErrorPage = false;
-        private bool _hasShownSeasonErrorPage = false;
-        private bool _hasShownPathErrorPage = false;
-        private bool _hasShown32bitErrorPage = false;
-
-        // Set when we intentionally aborted an injection, so the follow-up INJECTION_ERROR isn't treated as a real failure.
-        private bool _injectionAborted = false;
-
-        // The DLL reports an abort out-of-band (WM_COPYDATA, or a polled file under Wine), so it can land *after*
-        // the INJECTION_ERROR it was meant to excuse -- the aborted-flag check above then misses it entirely.
-        // Requiring a run of failures instead means a game that is merely still loading no longer trips the
-        // "stash error" help page, while a genuinely broken injection still reports within a few seconds.
-        private const int InjectionErrorsBeforeHelpPage = 5;
-        private int _consecutiveInjectionErrors = 0;
-
-        /// <summary>
-        /// Toolstrip callback for GDInjector
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void InjectorCallback(object? sender, ProgressChangedEventArgs e) {
-            if (InvokeRequired) {
-                Invoke((System.Windows.Forms.MethodInvoker) delegate { InjectorCallback(sender, e); });
-            }
-            else {
-                switch (e.ProgressPercentage) {
-                    case InjectionHelper.ABORTED:
-                        _injectionAborted = true;
-                        _consecutiveInjectionErrors = 0;
-                        break;
-
-
-                    case InjectionHelper.INJECTION_ERROR: {
-                            if (_injectionAborted) {
-                                // False positive, injection failed because we intentionally aborted. Consumed
-                                // rather than left set: on Windows the abort arrives by WM_COPYDATA and can land
-                                // just after the error it explains, but it only ever excuses that one error --
-                                // leaving the flag up would swallow every genuine failure for the rest of the session.
-                                _injectionAborted = false;
-                                break;
-                            }
-
-                            statusLabel.Text = e.UserState as string;
-                            _consecutiveInjectionErrors++;
-                            if (!_hasShownStashErrorPage && _consecutiveInjectionErrors >= InjectionErrorsBeforeHelpPage) {
-                                Logger.Error($"Injection has failed {_consecutiveInjectionErrors} times in a row, showing the stash error page.");
-                                _cefBrowserHandler.ShowHelp(HelpService.HelpType.StashError);
-                                _hasShownStashErrorPage = true;
-                            }
-
-                            break;
-                        }
-
-
-                    case InjectionHelper.GD_SEASON: {
-                            if (!_hasShownSeasonErrorPage) {
-                                _cefBrowserHandler.SetGdSeasonMode();
-                                _hasShownSeasonErrorPage = true;
-                            }
-
-                            break;
-                        }
-
-                    case InjectionHelper.PATH_ERROR: {
-                            if (!_hasShownPathErrorPage) {
-                                _cefBrowserHandler.ShowHelp(HelpService.HelpType.PathError);
-                                _hasShownPathErrorPage = true;
-                            }
-
-                            break;
-                        }
-
-                    case InjectionHelper.INJECTION_ERROR_32BIT: {
-                        statusLabel.Text = e.UserState as string;
-                        if (!_hasShown32bitErrorPage) {
-                            _cefBrowserHandler.ShowHelp(HelpService.HelpType.No32Bit);
-                            _hasShown32bitErrorPage = true;
-                        }
-
-                        break;
-                    }
-
-
-                    // No grim dawn client running
-                    case InjectionHelper.NO_PROCESS_FOUND:
-                        _injectionAborted = false;
-                        _consecutiveInjectionErrors = 0;
-                        break;
-
-                    // Injection error
-                    case InjectionHelper.INJECTION_ERROR_POSSIBLE_ACCESS_DENIED: {
-                        if (!_hasShownStashErrorPage) {
-                            _cefBrowserHandler.ShowHelp(HelpService.HelpType.StashError);
-                            _hasShownStashErrorPage = true;
-                        }
-
-                        break;
-                    }
-                    // Already injected, so whatever failed before has resolved itself.
-                    case InjectionHelper.STILL_RUNNING:
-                        _consecutiveInjectionErrors = 0;
-                        break;
-                }
-
-                // Only back up characters while Grim Dawn isn't running (avoids reading save files mid-write).
-                _charBackupService?.SetIsActive(e.ProgressPercentage == InjectionHelper.NO_PROCESS_FOUND);
-            }
-        }
-
-        #endregion Stash Status
-
-        public MainWindow(
-            ServiceProvider serviceProvider,
-            ParsingService parsingService
-        ) {
-            this._serviceProvider = serviceProvider;
-            var settingsService = _serviceProvider.Get<SettingsService>();
-            _cefBrowserHandler = new CefBrowserHandler(settingsService);
-            InitializeComponent();
-            FormClosing += MainWindow_FormClosing;
-
-            _minimizeToTrayHandler = new MinimizeToTrayHandler(this, notifyIcon1, serviceProvider.Get<SettingsService>());
-
-            _automaticUpdateChecker = new AutomaticUpdateChecker(settingsService);
-            _settingsController = new SettingsController(settingsService);
-            _parsingService = parsingService;
-            _userFeedbackService = new UserFeedbackService(_cefBrowserHandler);
-        }
-
-        private void Browser_NavigationCompleted(object? sender, CoreWebView2NavigationCompletedEventArgs e) {
-            var browser = (sender as Microsoft.Web.WebView2.WinForms.WebView2);
-            if (browser == null) {
-                browser = (sender as CefBrowserHandler)?.BrowserControl;
-            }
-
-            if (!e.IsSuccess) {
-                Logger.Error("WebView2 navigation failed, possible error rendering the WebView2 control.");
-                Logger.Error("Try manually installing the Microsoft Edge WebView2 Runtime");
-                Logger.Error($"Error code: {e.WebErrorStatus}");
-
-
-                MessageBox.Show($"A a fatal error occurred while attempting to navigate in the Microsoft Edge WebView2 Runtime\nError: {e.WebErrorStatus}", "Error - WebView2", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            } else {
-                Logger.Info("WebView2 navigation succeeded");
-            }
-
-            // Some users reports the webview is missing. This may or may not help..
-            if (browser != null) {
-                browser.Hide();
-                browser.Show();
-                browser.BringToFront();
-            }
-        }
-
-        private void Browser_CoreWebView2InitializationCompleted(object? sender, Microsoft.Web.WebView2.Core.CoreWebView2InitializationCompletedEventArgs args)
+        MainTabStrip.SelectionChanged += (_, _) =>
         {
-            var browser = (sender as Microsoft.Web.WebView2.WinForms.WebView2);
-            if (browser == null) {
-                browser = (sender as CefBrowserHandler)?.BrowserControl;
-            }
-            if (args != null && browser != null) {
-                if (InvokeRequired) {
-                    Invoke((System.Windows.Forms.MethodInvoker)delegate { Browser_CoreWebView2InitializationCompleted(sender, args); });
-                }
-                else {
+            var index = MainTabStrip.SelectedIndex;
 
-                    if (!args.IsSuccess) {
-                        Logger.Error("WebView2 initialization failed");
-                        Logger.Error("Try manually installing the Microsoft Edge WebView2 Runtime");
-                        if (args.InitializationException != null) {
-                            Logger.Fatal($"Exception: {args.InitializationException.Message}", args.InitializationException);
-                            MessageBox.Show($"A fatal error occurred while attempting to initialize the Microsoft Edge WebView2 Runtime\nError: {args.InitializationException.Message}\nTry manually installing the Microsoft WebView2 Runtime", "Error - WebView2", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        } else {
-                            Logger.Fatal("No exception provided, cause unknown");
-                            MessageBox.Show($"A fatal error occurred while attempting to initialize the Microsoft Edge WebView2 Runtime\n(Exception details unavailable)\nTry manually installing the Microsoft WebView2 Runtime", "Error - WebView2", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        }
+            splitSearchWindow.IsVisible = index == 0;
+            onlineHost.IsVisible = index == 1;
+            settingsWindow.IsVisible = index == 2;
+            modsDatabaseConfig.IsVisible = index == 3;
+        };
 
-                        // CoreWebView2 is null at this point, there's nothing more to initialize.
-                        return;
-                    }
+        if (settingsService.GetPersistent().DarkMode) {
+            Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        }
+        AddHandler(InputElement.KeyDownEvent, MainWindow_KeyDown, RoutingStrategies.Tunnel);
 
-                    Logger.Info("WebView2 initialization successful");
-
-                    // Anything below this point is our own initialization, not WebView2's.
-                    // WebView2 raises this event from within its own try/catch, so letting an exception escape here
-                    // makes the control re-raise the event as an "initialization failure" carrying our exception,
-                    // which then gets reported to the user as a broken WebView2 runtime.
-                    try {
-                        browser.CoreWebView2.SetVirtualHostNameToFolderMapping(
-                            "app",
-                            GlobalPaths.StorageFolder,
-                            CoreWebView2HostResourceAccessKind.Allow
-                        );
-                        browser.CoreWebView2.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
+        MainWindow_Load();
+    }
 
 
+    private void Browser_NavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e) {
+        if (!e.IsSuccess) {
+            Logger.Error("WebView navigation failed.");
+            Logger.Error("Make sure webviewgtk is installed.");
+            Logger.Error($"Error: {e.Request}");
 
-                        var searchController = _serviceProvider.Get<SearchController>();
-                        _cefBrowserHandler.InitializeChromium(browser, searchController.JsIntegration, tabControl1);
-                        _cefBrowserHandler.IsReady = true;
-
-                        _searchWindow?.UpdateListViewDelayed();
-
-                        var isGdParsed = _serviceProvider.Get<IDatabaseItemDao>().GetRowCount() > 0;
-                        var settingsService = _serviceProvider.Get<SettingsService>();
-                        _cefBrowserHandler.SetDarkMode(settingsService.GetPersistent().DarkMode);
-                        _cefBrowserHandler.SetHideItemSkills(settingsService.GetPersistent().HideSkills);
-                        _cefBrowserHandler.SetIsGrimParsed(isGdParsed);
+            _ = MessageBox.Show($"A a fatal error occurred while attempting to navigate in webviewgtk\nError: {e.Request}", "Error - WebviewGTK", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            return;
+        }
+        Logger.Info("WebView navigation succeeded");
+    }
 
 
-                        _cefBrowserHandler.SetOnlineBackupsEnabled(!settingsService.GetLocal().OptOutOfBackups);
+    private void Browser_InitializationCompleted(object? sender, EventArgs e)
+    {
+        Logger.Info("WebUI signalled readiness");
+        _cefBrowserHandler.SetReady();
+        _searchWindow?.UpdateListViewDelayed();
 
-                        var numItems = _serviceProvider.Get<IPlayerItemDao>().GetNumItems();
-                        _cefBrowserHandler.SetIsFirstRun(numItems == 0);
-                        if (numItems == 0) {
-                        } else if (DateTime.Now.Month == 4 && DateTime.Now.Day == 1) {
-                            if (settingsService.GetLocal().EasterPrank) {
-                                _cefBrowserHandler.SetEasterEggMode();
-                                settingsService.GetLocal().EasterPrank = false;
-                            }
-                        }
-                        else {
-                            settingsService.GetLocal().EasterPrank = true;
-                        }
+        var isGdParsed = _serviceProvider.Get<IDatabaseItemDao>().GetRowCount() > 0;
+        var settingsService = _serviceProvider.Get<SettingsService>();
+        _cefBrowserHandler.SetDarkMode(settingsService.GetPersistent().DarkMode);
+        _cefBrowserHandler.SetHideItemSkills(settingsService.GetPersistent().HideSkills);
+        _cefBrowserHandler.SetIsGrimParsed(isGdParsed);
 
-                        // Introduce the numeric stat filter to established users who haven't found it yet.
-                        var persistent = settingsService.GetPersistent();
-                        if (numItems >= NumericFilterBannerMinItems && !persistent.NumericFilterUsed && !persistent.NumericFilterBannerDismissed) {
-                            _cefBrowserHandler.SetShowNumericFilterBanner(true);
-                        }
-                    } catch (Exception ex) {
-                        Logger.Fatal($"Error initializing the user interface: {ex.Message}", ex);
-                        MessageBox.Show($"An error occurred while initializing Item Assistant\nError: {ex.Message}\n\nSee the log file for details.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                }
+
+        _cefBrowserHandler.SetOnlineBackupsEnabled(!settingsService.GetLocal().OptOutOfBackups);
+
+        var numItems = _serviceProvider.Get<IPlayerItemDao>().GetNumItems();
+        _cefBrowserHandler.SetIsFirstRun(numItems == 0);
+        if (numItems == 0) {
+        } else if (DateTime.Now.Month == 4 && DateTime.Now.Day == 1) {
+            if (settingsService.GetLocal().EasterPrank) {
+                _cefBrowserHandler.SetEasterEggMode();
+                settingsService.GetLocal().EasterPrank = false;
             }
         }
-
-        /// <summary>
-        /// Update the UI's language
-        /// </summary>
-        public void UpdateLanguage() {
-            LocalizationLoader.ApplyLanguage(Controls, RuntimeSettings.Language!);
-            Refresh();
+        else {
+            settingsService.GetLocal().EasterPrank = true;
         }
 
-
-        private void IterAndCloseForms(Control.ControlCollection controls) {
-            foreach (Control c in controls) {
-                Form? f = c as Form;
-                if (f != null)
-                    f.Close();
-
-                IterAndCloseForms(c.Controls);
-            }
+        // Introduce the numeric stat filter to established users who haven't found it yet.
+        var persistent = settingsService.GetPersistent();
+        if (numItems >= NumericFilterBannerMinItems && !persistent.NumericFilterUsed && !persistent.NumericFilterBannerDismissed) {
+            _cefBrowserHandler.SetShowNumericFilterBanner(true);
         }
 
-        private void MainWindow_FormClosing(object? sender, FormClosingEventArgs e) {
-            // No idea which of these are triggering on rare occasions, perhaps Deactivate, sizechanged or filterWindow.
-            FormClosing -= MainWindow_FormClosing;
-            SizeChanged -= OnMinimizeWindow;
+    }
 
-            _authService?.Dispose();
-            _authService = null;
-
-            _csvFileMonitor?.Dispose();
-            _csvFileMonitor = null;
-
-            _replicaCsvFileMonitor?.Dispose();
-            _replicaCsvFileMonitor = null;
-
-            _csvParsingService?.Dispose();
-            _csvParsingService = null;
-
-            _itemReplicaService?.Dispose();
-            _itemReplicaService = null;
-
-            _itemStatPrecomputeService?.Dispose();
-            _itemStatPrecomputeService = null;
-
-            _minimizeToTrayHandler?.Dispose();
-            _minimizeToTrayHandler = null;
-
-            _backupBackgroundTask?.Dispose();
-            _usageStatisticsReporter.Dispose();
-            _automaticUpdateChecker.Dispose();
-
-            _tooltipHelper?.Dispose();
-
-            _buddyItemsService?.Dispose();
-            _buddyItemsService = null;
-
-            _injector?.Dispose();
-            _injector = null;
-
-            _wineMessageTimer?.Stop();
-            _wineMessageTimer?.Dispose();
-            _wineMessageTimer = null;
-
-            _backupServiceWorker?.Dispose();
-            _backupServiceWorker = null;
-            _webSocketSyncService?.Dispose();
-            _webSocketSyncService = null;
-
-            _window?.Dispose();
-            _window = null;
-
-            _itemReplicaParser?.Dispose();
-            _itemReplicaParser = null;
-
-            IterAndCloseForms(Controls);
+    // /// <summary>
+    // /// Update the UI's language
+    // /// </summary>
+    public void UpdateLanguage() {
+        if (RuntimeSettings.Language != null) {
+            LocalizationLoader.ApplyLanguage(this, RuntimeSettings.Language);
         }
+    }
 
+    private void MainWindow_Closing(object? sender, WindowClosingEventArgs e) {
+        // No idea which of these are triggering on rare occasions, perhaps Deactivate, sizechanged or filterWindow.
+        Closing -= MainWindow_Closing;
+        // TODO
+        // SizeChanged -= OnMinimizeWindow;
+
+        _parsingService.OnParseComplete -= OnParseComplete;
+
+        _authService?.Dispose();
+        _authService = null;
+
+        _csvFileMonitor?.Dispose();
+        _csvFileMonitor = null;
+
+        _replicaCsvFileMonitor?.Dispose();
+        _replicaCsvFileMonitor = null;
+
+        _csvParsingService?.Dispose();
+        _csvParsingService = null;
+
+        _itemReplicaService?.Dispose();
+        _itemReplicaService = null;
+
+        _itemStatPrecomputeService?.Dispose();
+        _itemStatPrecomputeService = null;
+
+        // TODO
+        // _minimizeToTrayHandler?.Dispose();
+        // _minimizeToTrayHandler = null;
+
+        // TODO
+        _backupBackgroundTask?.Dispose();
+        // _usageStatisticsReporter.Dispose();
+        _automaticUpdateChecker.Dispose();
+
+        _buddyItemsService?.Dispose();
+        _buddyItemsService = null;
+
+        // TODO
+        // _injector?.Dispose();
+        // _injector = null;
+
+        _wineMessageTimer?.Stop();
+        _wineMessageTimer = null;
+
+        _backupServiceWorker?.Dispose();
+        _backupServiceWorker = null;
+        _webSocketSyncService?.Dispose();
+        _webSocketSyncService = null;
+
+        _itemReplicaParser?.Dispose();
+        _itemReplicaParser = null;
+    }
 
         /// <summary>
         /// Callback called when the Grim Dawn hook sends messages to IA
@@ -401,8 +258,9 @@ namespace IAGrim.UI {
         private void CustomWndProc(RegisterWindow.DataAndType bt) {
             // Most if not all actions may interact with SQL
             // SQL is done on the UI thread.
-            if (InvokeRequired) {
-                Invoke((System.Windows.Forms.MethodInvoker) delegate { CustomWndProc(bt); });
+            if (!Dispatcher.UIThread.CheckAccess())
+            {
+                Dispatcher.UIThread.Post(() => CustomWndProc(bt));
                 return;
             }
 
@@ -437,65 +295,67 @@ namespace IAGrim.UI {
             }
         }
 
-        protected override void OnHandleCreated(EventArgs e) {
-            base.OnHandleCreated(e);
-            ShowExistingInstanceMessage.AllowReceiving(Handle);
-        }
+        // TODO
+        // protected override void OnHandleCreated(EventArgs e) {
+        //     base.OnHandleCreated(e);
+        //     ShowExistingInstanceMessage.AllowReceiving(Handle);
+        // }
+        //
+        // protected override void WndProc(ref Message m) {
+        //     if (ShowExistingInstanceMessage.Id != 0 && m.Msg == ShowExistingInstanceMessage.Id) {
+        //         Logger.Info("A second instance was started, showing the existing window.");
+        //         ShowAndCenterWindow();
+        //     }
+        //
+        //     base.WndProc(ref m);
+        // }
 
-        protected override void WndProc(ref Message m) {
-            if (ShowExistingInstanceMessage.Id != 0 && m.Msg == ShowExistingInstanceMessage.Id) {
-                Logger.Info("A second instance was started, showing the existing window.");
-                ShowAndCenterWindow();
-            }
+        // TODO
+        // /// <summary>
+        // /// Brings IA back up wherever it happens to be: minimized, hidden in the tray, or on a monitor
+        // /// that no longer exists. The window is centered on the screen the mouse is on, which is the screen
+        // /// the user just started IA from.
+        // /// </summary>
+        // private void ShowAndCenterWindow() {
+        //     try {
+        //         // Restores from the tray, including the window state it had before it was minimized.
+        //         _minimizeToTrayHandler?.notifyIcon_MouseDoubleClick(this, null);
+        //
+        //         Show();
+        //         Visible = true;
+        //
+        //         if (WindowState == FormWindowState.Minimized) {
+        //             WindowState = FormWindowState.Normal;
+        //         }
+        //
+        //         if (WindowState != FormWindowState.Maximized) {
+        //             var screen = Screen.FromPoint(Cursor.Position).WorkingArea;
+        //             Left = screen.Left + Math.Max(0, (screen.Width - Width) / 2);
+        //             Top = screen.Top + Math.Max(0, (screen.Height - Height) / 2);
+        //         }
+        //
+        //         Activate();
+        //         BringToFront();
+        //     }
+        //     catch (Exception ex) {
+        //         Logger.Warn("Error showing the window on request from a second instance", ex);
+        //     }
+        // }
 
-            base.WndProc(ref m);
-        }
-
-        /// <summary>
-        /// Brings IA back up wherever it happens to be: minimized, hidden in the tray, or on a monitor
-        /// that no longer exists. The window is centered on the screen the mouse is on, which is the screen
-        /// the user just started IA from.
-        /// </summary>
-        private void ShowAndCenterWindow() {
-            try {
-                // Restores from the tray, including the window state it had before it was minimized.
-                _minimizeToTrayHandler?.notifyIcon_MouseDoubleClick(this, null);
-
-                Show();
-                Visible = true;
-
-                if (WindowState == FormWindowState.Minimized) {
-                    WindowState = FormWindowState.Normal;
-                }
-
-                if (WindowState != FormWindowState.Maximized) {
-                    var screen = Screen.FromPoint(Cursor.Position).WorkingArea;
-                    Left = screen.Left + Math.Max(0, (screen.Width - Width) / 2);
-                    Top = screen.Top + Math.Max(0, (screen.Height - Height) / 2);
-                }
-
-                Activate();
-                BringToFront();
-            }
-            catch (Exception ex) {
-                Logger.Warn("Error showing the window on request from a second instance", ex);
-            }
-        }
-
-        protected override bool ProcessCmdKey(ref Message msg, Keys keyData) {
-            if (keyData == Keys.Escape) {
+        private void MainWindow_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape)
+            {
                 _searchWindow?.ClearFilters();
-                return true; // indicate that you handled this keystroke
+                e.Handled = true;
             }
-
-            // Call the base class
-            return base.ProcessCmdKey(ref msg, keyData);
         }
 
         private void SetFeedback(string feedback) {
             try {
-                if (InvokeRequired) {
-                    Invoke((System.Windows.Forms.MethodInvoker)delegate { SetFeedback(feedback); });
+                if (!Dispatcher.UIThread.CheckAccess()) {
+                    Dispatcher.UIThread.Post(() => SetFeedback(feedback));
+                    return;
                 }
                 else {
                     statusLabel.Text = feedback.Replace("\\n", " - ");
@@ -509,12 +369,14 @@ namespace IAGrim.UI {
 
         private void SetInjectionAbortedStatus() {
             try {
-                if (InvokeRequired) {
-                    Invoke((System.Windows.Forms.MethodInvoker)SetInjectionAbortedStatus);
+                if (!Dispatcher.UIThread.CheckAccess())
+                {
+                    Dispatcher.UIThread.Post(SetInjectionAbortedStatus);
+                    return;
                 }
                 else {
-                    InjectorCallback(null, new ProgressChangedEventArgs(InjectionHelper.ABORTED, null));
-                    
+                    // TODO
+                    // InjectorCallback(null, new ProgressChangedEventArgs(InjectionHelper.ABORTED, null));
                 }
             }
             catch (ObjectDisposedException ex) {
@@ -524,25 +386,21 @@ namespace IAGrim.UI {
 
 
         private void TimerTickLookForGrimDawn(object? sender, EventArgs e) {
-            System.Windows.Forms.Timer? timer = sender as System.Windows.Forms.Timer;
-            if (Thread.CurrentThread.Name == null) {
+            var timer = sender as DispatcherTimer;
+            if (Thread.CurrentThread.Name == null)
+            {
                 Thread.CurrentThread.Name = "DetectGrimDawnTimer";
-                Thread.CurrentThread.CurrentUICulture = new System.Globalization.CultureInfo("en-US");
+                Thread.CurrentThread.CurrentUICulture = new CultureInfo("en-US");
             }
 
             var grimDawnDetector = _serviceProvider.Get<GrimDawnDetector>();
-            if (grimDawnDetector.GetGrimLocations().Count > 0) {
+            var grimLocations = grimDawnDetector.GetGrimLocations();
+            if (grimLocations.Count > 0) {
                 timer?.Stop();
-                var xyx = grimDawnDetector.GetGrimLocations();
-                var gdPath = grimDawnDetector.GetGrimLocations().First();
+                var gdPath = grimLocations.First();
 
                 // Attempt to force a database update
-                foreach (Control c in modsPanel.Controls) {
-                    if (c is ModsDatabaseConfig config) {
-                        config.ForceDatabaseUpdate(gdPath, string.Empty);
-                        break;
-                    }
-                }
+                _modsDatabaseConfigTab?.ForceDatabaseUpdate(gdPath, string.Empty);
 
                 Logger.InfoFormat("Found Grim Dawn at {0}", gdPath);
             }
@@ -560,399 +418,660 @@ namespace IAGrim.UI {
 
         private void DatabaseLoadedTrigger() {
             _searchWindow?.UpdateInterface();
-
-            // UpdateInterface() rebuilds the search filter panel from scratch, so the new controls
-            // come up with their (light) designer colors. Re-theme them, or the left hand filter
-            // menu loses dark mode after parsing Grim Dawn. No-op when dark mode is off.
-            if (_searchWindow != null) {
-                _darkMode?.Reapply(_searchWindow);
-            }
-
             _searchWindow?.UpdateListViewDelayed();
             _itemReplicaService?.Reset();
         }
 
-        private void MainWindow_Load(object sender, EventArgs e) {
-            if (Thread.CurrentThread.Name == null) {
-                Thread.CurrentThread.Name = "UI";
+
+    public void MainWindow_Load()
+    {
+        if (Thread.CurrentThread.Name == null) {
+            Thread.CurrentThread.Name = "UI";
+        }
+
+        Logger.Debug("Starting UI initialization");
+
+        // Set version number
+        DateTime buildDate = ExceptionReporter.BuildDate;
+        statusLabel.Text = statusLabel.Text + $" - {ExceptionReporter.VersionString} from {buildDate.ToString("dd/MM/yyyy")}";
+        tsVersionNumber.Text = $"{ExceptionReporter.VersionString} (Linux)";
+
+        var settingsService = _serviceProvider.Get<SettingsService>();
+        ExceptionReporter.EnableLogUnhandledOnThread();
+        // TODO
+        // SizeChanged += OnMinimizeWindow;
+
+        // Chicken and the egg.. search controller needs browser, browser needs search controllers var.
+        var databaseItemDao = _serviceProvider.Get<IDatabaseItemDao>();
+        _searchController.JsIntegration.OnRequestSetItemAssociations += (s, evvv) => { (evvv as GetSetItemAssociationsEventArgs).Elements = databaseItemDao.GetItemSetAssociations(); };
+
+        _searchController.Browser = _cefBrowserHandler;
+        _searchController.JsIntegration.OnSignalReadiness += Browser_InitializationCompleted;
+        _searchController.JsIntegration.OnClipboard += SetItemsClipboard;
+        _searchController.JsIntegration.OnDismissNumericFilterBanner += (_, _) => settingsService.GetPersistent().NumericFilterBannerDismissed = true;
+
+        var playerItemDao = _serviceProvider.Get<IPlayerItemDao>();
+        var cacher = _serviceProvider.Get<TransferStashServiceCache>();
+        _parsingService.OnParseComplete += OnParseComplete;
+
+
+        var replicaItemDao = _serviceProvider.Get<IReplicaItemDao>();
+        var computedItemStatDao = _serviceProvider.Get<IComputedItemStatDao>();
+        var transferStashService = new TransferStashService();
+
+
+        // Load the grim database
+        var grimDawnDetector = _serviceProvider.Get<GrimDawnDetector>();
+        if (grimDawnDetector.GetGrimLocations().Count == 0) {
+            Logger.Warn("Could not find the Grim Dawn install location");
+            statusLabel.Text = "Could not find the Grim Dawn install location";
+
+            var timer = new DispatcherTimer {
+                Interval = TimeSpan.FromMilliseconds(10000)
+            };
+            timer.Tick += TimerTickLookForGrimDawn;
+            timer.Start();
+        }
+
+        
+        var buddyItemDao = _serviceProvider.Get<IBuddyItemDao>();
+        var buddySubscriptionDao = _serviceProvider.Get<IBuddySubscriptionDao>();
+
+
+        _authService = new AuthService(new AuthenticationProvider(settingsService), playerItemDao);
+        var onlineSettings = new OnlineSettings(playerItemDao, settingsService, _cefBrowserHandler, buddyItemDao, buddySubscriptionDao);
+        onlineHost.Content = onlineSettings;
+        _authService.OnAuthCompletion += (sender, args_) => {
+            if (((args_ as AuthResultEvent)!).IsAuthorized) {
+                onlineSettings.UpdateUi();
             }
-
-            Logger.Debug("Starting UI initialization");
-
-
-            // Set version number
-            DateTime buildDate = ExceptionReporter.BuildDate;
-            statusLabel.Text = statusLabel.Text + $" - {ExceptionReporter.VersionString} from {buildDate.ToString("dd/MM/yyyy")}";
-            tsVersionNumber.Text = ExceptionReporter.VersionString;
-
-
-            var settingsService = _serviceProvider.Get<SettingsService>();
-            ExceptionReporter.EnableLogUnhandledOnThread();
-            SizeChanged += OnMinimizeWindow;
-
-
-            // Chicken and the egg.. search controller needs browser, browser needs search controllers var.
-            var databaseItemDao = _serviceProvider.Get<IDatabaseItemDao>();
-            var searchController = _serviceProvider.Get<SearchController>();
-            searchController.JsIntegration.OnRequestSetItemAssociations += (s, evvv) => { (evvv as GetSetItemAssociationsEventArgs).Elements = databaseItemDao.GetItemSetAssociations(); };
-
-            searchController.Browser = _cefBrowserHandler;
-            searchController.JsIntegration.OnClipboard += SetItemsClipboard;
-            searchController.JsIntegration.OnDismissNumericFilterBanner += (_, _) => settingsService.GetPersistent().NumericFilterBannerDismissed = true;
-
-            var playerItemDao = _serviceProvider.Get<IPlayerItemDao>();
-            var cacher = _serviceProvider.Get<TransferStashServiceCache>();
-            _parsingService.OnParseComplete += (o, args) => cacher.Refresh();
-
-
-            var replicaItemDao = _serviceProvider.Get<IReplicaItemDao>();
-            var computedItemStatDao = _serviceProvider.Get<IComputedItemStatDao>();
-            var transferStashService = new TransferStashService();
-                
-
-            // Load the grim database
-            var grimDawnDetector = _serviceProvider.Get<GrimDawnDetector>();
-            if (grimDawnDetector.GetGrimLocations().Count == 0) {
-                Logger.Warn("Could not find the Grim Dawn install location");
-                statusLabel.Text = "Could not find the Grim Dawn install location";
-
-                var timer = new System.Windows.Forms.Timer();
-                timer.Tick += TimerTickLookForGrimDawn;
-                timer.Interval = 10000;
-                timer.Start();
+            else {
             }
+        };
 
-            
-            var buddyItemDao = _serviceProvider.Get<IBuddyItemDao>();
-            var buddySubscriptionDao = _serviceProvider.Get<IBuddySubscriptionDao>();
+        _modsDatabaseConfigTab = new ModsDatabaseConfig(DatabaseLoadedTrigger, playerItemDao, _parsingService, grimDawnDetector, settingsService, _cefBrowserHandler, databaseItemDao, replicaItemDao, computedItemStatDao);
+        modsDatabaseConfig.Content = _modsDatabaseConfigTab;
 
+        var itemTagDao = _serviceProvider.Get<IItemTagDao>();
+        var backupService = new BackupService(_authService, playerItemDao, settingsService, _cefBrowserHandler);
+        _charBackupService = new CharacterBackupService(settingsService, _authService);
+        _backupServiceWorker = new BackupServiceWorker(backupService, _charBackupService);
 
+        // Live sync for "multiple PCs" users: pushes new items/deletions and applies the same
+        // events from the user's other machines instantly. The regular backup above remains the
+        // source of truth; this only makes updates propagate faster.
+        _webSocketSyncService = new WebSocketSyncService(new AuthenticationProvider(settingsService), settingsService, playerItemDao);
+        _webSocketSyncService.Start();
+        _searchController.JsIntegration.OnRequestBackedUpCharacterList += (_, args) => {
+            RequestCharacterListEventArg a = args as RequestCharacterListEventArg;
+            a.Characters = _charBackupService.ListBackedUpCharacters();
+        };
+        _searchController.JsIntegration.OnRequestCharacterDownloadUrl += (_, args) => {
+            RequestCharacterDownloadUrlEventArg a = args as RequestCharacterDownloadUrlEventArg;
+            if (a.Character != null) {
+                a.Url = _charBackupService.GetDownloadUrl(a.Character);
+            }
+        };
 
-            _authService = new AuthService(new AuthenticationProvider(settingsService), playerItemDao);
-            var onlineSettings = new OnlineSettings(playerItemDao, settingsService, _cefBrowserHandler, buddyItemDao, buddySubscriptionDao);
-            UIHelper.AddAndShow(onlineSettings, onlinePanel);
-            _authService.OnAuthCompletion += (sender, args_) => {
-                if (((args_ as AuthResultEvent)!).IsAuthorized) {
-                    onlineSettings.UpdateUi();
-                }
-                else {
-                }
-            };
+        _searchController.OnSearch += (o, args) => backupService.OnSearch();
 
+        _searchWindow = new SplitSearchWindow(_webView, SetFeedback, playerItemDao, _searchController, itemTagDao, settingsService);
+        splitSearchWindow.Content = _searchWindow;
 
-            _modsDatabaseConfigTab = new ModsDatabaseConfig(DatabaseLoadedTrigger, playerItemDao, _parsingService, grimDawnDetector, settingsService, _cefBrowserHandler, databaseItemDao, replicaItemDao, computedItemStatDao);
-            UIHelper.AddAndShow(_modsDatabaseConfigTab, modsPanel);
+        // TODO browser setup here
+        // var browser = _searchWindow.Browser;
+        // browser.CoreWebView2InitializationCompleted += Browser_CoreWebView2InitializationCompleted;
 
-            var itemTagDao = _serviceProvider.Get<IItemTagDao>();
-            var backupService = new BackupService(_authService, playerItemDao, settingsService, _cefBrowserHandler);
-            _charBackupService = new CharacterBackupService(settingsService, _authService);
-            _backupServiceWorker = new BackupServiceWorker(backupService, _charBackupService);
+        settingsWindow.Content = new SettingsWindow(
+                _cefBrowserHandler,
+                ListviewUpdateTrigger,
+                () => MainTabStrip.SelectedIndex = 0,
+                playerItemDao,
+                _searchWindow.ModSelectionHandler.GetAvailableModSelection(),
+                settingsService,
+                itemTagDao,
+                _parsingService,
+                grimDawnDetector,
+                _automaticUpdateChecker
+            );
 
-            // Live sync for "multiple PCs" users: pushes new items/deletions and applies the same
-            // events from the user's other machines instantly. The regular backup above remains the
-            // source of truth; this only makes updates propagate faster.
-            _webSocketSyncService = new WebSocketSyncService(new AuthenticationProvider(settingsService), settingsService, playerItemDao);
-            _webSocketSyncService.Start();
-            searchController.JsIntegration.OnRequestBackedUpCharacterList += (_, args) => {
-                RequestCharacterListEventArg a = args as RequestCharacterListEventArg;
-                a.Characters = _charBackupService.ListBackedUpCharacters();
-            };
-            searchController.JsIntegration.OnRequestCharacterDownloadUrl += (_, args) => {
-                RequestCharacterDownloadUrlEventArg a = args as RequestCharacterDownloadUrlEventArg;
-                if (a.Character != null) {
-                    a.Url = _charBackupService.GetDownloadUrl(a.Character);
-                }
-            };
-
-            searchController.OnSearch += (o, args) => backupService.OnSearch();
-
-            _searchWindow = new SplitSearchWindow(_cefBrowserHandler.BrowserControl!, SetFeedback, playerItemDao, searchController, itemTagDao, settingsService);
-            UIHelper.AddAndShow(_searchWindow, searchPanel);
-
-
-            var browser = _searchWindow.Browser;
-            browser.CoreWebView2InitializationCompleted += Browser_CoreWebView2InitializationCompleted;
-            browser.NavigationCompleted += Browser_NavigationCompleted;
-
-            searchPanel.Height = searchPanel.Parent!.Height;
-            searchPanel.Width = searchPanel.Parent!.Width;
-
-            var languagePackPicker = new LanguagePackPicker(itemTagDao, playerItemDao, _parsingService, settingsService);
-
-
-            var dm = new DarkMode(this);
-            _darkMode = dm;
-            UIHelper.AddAndShow(
-                new SettingsWindow(
-                    _cefBrowserHandler,
-                    _tooltipHelper,
-                    ListviewUpdateTrigger,
-                    playerItemDao,
-                    _searchWindow.ModSelectionHandler.GetAvailableModSelection(),
-                    languagePackPicker,
-                    settingsService,
-                    grimDawnDetector,
-                    dm,
-                    _automaticUpdateChecker
-                ),
-                settingsPanel);
-
-            
-            _itemReplicaService = _serviceProvider.Get<ItemReplicaRequesterService>();
+        
+        _itemReplicaService = _serviceProvider.Get<ItemReplicaRequesterService>();
+        if (GlobalPaths.HasGrimDawnWineUserProfilePath) {
             _itemReplicaService.Start();
+        }
 
-            _itemStatPrecomputeService = _serviceProvider.Get<ItemStatPrecomputeService>();
-            _itemStatPrecomputeService.Start();
-
+        _itemStatPrecomputeService = _serviceProvider.Get<ItemStatPrecomputeService>();
+        _itemStatPrecomputeService.Start();
 
 #if !DEBUG
-            if (_automaticUpdateChecker.ShouldCheckForUpdates()) {
-                _automaticUpdateChecker.CheckForUpdates();
-            }
+        if (_automaticUpdateChecker.ShouldCheckForUpdates()) {
+            _automaticUpdateChecker.CheckForUpdates();
+        }
 #endif
 
-            Shown += (_, __) => { StartInjector(); };
-            _buddyItemsService = new BuddyItemsService(
-                buddyItemDao,
-                3 * 60 * 1000,
-                settingsService,
-                _authService,
-                buddySubscriptionDao
-            );
+        if (GlobalPaths.HasGrimDawnWineUserProfilePath) {
+            Opened += (_, _) => { StartInjector(); };
+        }
+        _buddyItemsService = new BuddyItemsService(
+            buddyItemDao,
+            3 * 60 * 1000,
+            settingsService,
+            _authService,
+            buddySubscriptionDao
+        );
 
-            // Start the backup task
-            _backupBackgroundTask = new BackgroundTask(new FileBackup(playerItemDao, settingsService));
+        // Start the backup task
+        _backupBackgroundTask = new BackgroundTask(new FileBackup(playerItemDao, settingsService));
 
-            LocalizationLoader.ApplyLanguage(Controls, RuntimeSettings.Language!);
+        if (RuntimeSettings.Language != null) {
+            LocalizationLoader.ApplyLanguage(this, RuntimeSettings.Language);
+        }
 
-            _messageProcessors.Add(new GenericErrorHandler());
-            _messageProcessors.Add(new InjectionAbortedProcessor(SetInjectionAbortedStatus));
-
-
-            _transferController = new ItemTransferController(
-                _cefBrowserHandler,
-                SetFeedback,
-                playerItemDao,
-                transferStashService,
-                settingsService
-            );
-            Application.AddMessageFilter(new MousewheelMessageFilter());
+        _messageProcessors.Add(new GenericErrorHandler());
+        _messageProcessors.Add(new InjectionAbortedProcessor(SetInjectionAbortedStatus));
 
 
-            if (_authService.CheckAuthentication() == AuthService.AccessStatus.Unauthorized && !settingsService.GetLocal().OptOutOfBackups && playerItemDao.GetNumItems() > 100) {
-                var authService = new AuthService(new AuthenticationProvider(settingsService), _serviceProvider.Get<IPlayerItemDao>());
-                new BackupLoginNagScreen(authService, settingsService).Show();
+        _transferController = new ItemTransferController(
+            _cefBrowserHandler,
+            SetFeedback,
+            playerItemDao,
+            transferStashService,
+            settingsService
+        );
+        // TODO
+        // Application.AddMessageFilter(new MousewheelMessageFilter());
+
+        if (_authService.CheckAuthentication() == AuthService.AccessStatus.Unauthorized && !settingsService.GetLocal().OptOutOfBackups && playerItemDao.GetNumItems() > 100) {
+            var authService = new AuthService(new AuthenticationProvider(settingsService), _serviceProvider.Get<IPlayerItemDao>());
+            // TODO
+            // new BackupLoginNagScreen(authService, settingsService).Show();
+        }
+
+        _searchController.JsIntegration.ItemTransferEvent += TransferItem;
+
+        // TODO
+        // new WindowSizeManager(this, settingsService);
+
+
+        if (settingsService.GetLocal().LanguageCode.Equals("EN", StringComparison.OrdinalIgnoreCase) && !settingsService.GetLocal().HasSuggestedLanguageChange) {
+            if (LocalizationLoader.HasSupportedTranslations(grimDawnDetector.GetGrimLocations())) {
+                Logger.Debug("A new language pack has been detected, informing end user..");
+                var languagePackPicker = new LanguagePackPicker(itemTagDao, playerItemDao, _parsingService, settingsService);
+                _ = languagePackPicker.Show(grimDawnDetector.GetGrimLocations(), this);
+
+                settingsService.GetLocal().HasSuggestedLanguageChange = true;
             }
-
-            searchController.JsIntegration.ItemTransferEvent += TransferItem;
-            new WindowSizeManager(this, settingsService);
+        }
 
 
-            // Suggest translation packs if available
-            if (settingsService.GetLocal().LanguageCode.Equals("EN", StringComparison.OrdinalIgnoreCase) && !settingsService.GetLocal().HasSuggestedLanguageChange) {
-                if (LocalizationLoader.HasSupportedTranslations(grimDawnDetector.GetGrimLocations())) {
-                    Logger.Debug("A new language pack has been detected, informing end user..");
-                    new LanguagePackPicker(itemTagDao, playerItemDao, _parsingService, settingsService).Show(grimDawnDetector.GetGrimLocations());
+        if (settingsService.GetPersistent().DarkMode) {
+            _cefBrowserHandler.SetDarkMode(settingsService.GetPersistent().DarkMode);
+        }
 
-                    settingsService.GetLocal().HasSuggestedLanguageChange = true;
-                }
-            }
+        settingsService.GetLocal().OnMutate += delegate(object? o, EventArgs args) { _cefBrowserHandler.SetOnlineBackupsEnabled(!settingsService.GetLocal().OptOutOfBackups); };
 
+        _csvParsingService = new CsvParsingService(playerItemDao, _userFeedbackService, cacher, transferStashService, replicaItemDao);
+        _csvFileMonitor!.OnModified += (_, arg) => {
+            var csvEvent = arg as CsvFileMonitor.CsvEvent;
+            Logger.Debug($"Incoming item file detected: {csvEvent.Filename}");
+            _csvParsingService.Queue(csvEvent.Filename, csvEvent.Cooldown);
+        };
 
-            if (settingsService.GetPersistent().DarkMode) {
-                dm.Activate(); // Needs a lot more work before its ready, for example custom components uses Draw and does not respect coloring.
-                _cefBrowserHandler.SetDarkMode(settingsService.GetPersistent().DarkMode);
-            }
-
-            settingsService.GetLocal().OnMutate += delegate(object? o, EventArgs args) { _cefBrowserHandler.SetOnlineBackupsEnabled(!settingsService.GetLocal().OptOutOfBackups); };
-
-
-            _csvParsingService = new CsvParsingService(playerItemDao, _userFeedbackService, cacher, transferStashService, replicaItemDao);
-            _csvFileMonitor!.OnModified += (_, arg) => {
-                var csvEvent = arg as CsvFileMonitor.CsvEvent;
-                _csvParsingService.Queue(csvEvent.Filename, csvEvent.Cooldown);
-            };
-
-            _itemReplicaParser = new ItemReplicaParser(replicaItemDao, playerItemDao, _cefBrowserHandler);
-            _replicaCsvFileMonitor!.OnModified += (_, arg) => {
-                _itemReplicaParser.Enqueue(arg);
-            };
+        _itemReplicaParser = new ItemReplicaParser(replicaItemDao, playerItemDao, _cefBrowserHandler);
+        _replicaCsvFileMonitor!.OnModified += (_, arg) => {
+            _itemReplicaParser.Enqueue(arg);
+            Logger.Debug($"Replica Parser Queue");
+        };
+        if (GlobalPaths.HasGrimDawnWineUserProfilePath) {
             _itemReplicaParser.Start();
+        }
 
 
-            _csvParsingService.OnItemLooted += (_, arg) => {
-                _searchWindow.SelectModFilterIfNotSelected();
+        _csvParsingService.OnItemLooted += async (_, arg) => {
+            await _searchWindow.SelectModFilterIfNotSelected();
 
-                var item = arg.Item;
-                _searchWindow.UpdateListView(item);
+            var item = arg.Item;
+             Logger.Debug($"Item looted: Name='{item.Name}' BaseRecord='{item.BaseRecord}' PrefixRecord='{item.PrefixRecord}' SuffixRecord='{item.SuffixRecord}' MateriaRecord='{item.MateriaRecord}' Seed={item.Seed} Rarity='{item.Rarity}'");
+            _searchWindow.UpdateListView(item);
 
-                // Push the freshly looted item to the user's other machines immediately.
-                _webSocketSyncService?.SendItems(new List<PlayerItem> { item });
-            };
+            // Push the freshly looted item to the user's other machines immediately.
+            _webSocketSyncService?.SendItems(new List<PlayerItem> { item });
+            _cefBrowserHandler.SetIsFirstRun(false);
+        };
 
-            // Push in-game transfers (deletions) live, so the item disappears from the user's other
-            // machines before it can be transferred a second time and duplicated.
-            _transferController.OnItemsTransferredToGame += (_, arg) => {
-                _webSocketSyncService?.SendDeletions(arg.CloudIds);
-            };
+        // Push in-game transfers (deletions) live, so the item disappears from the user's other
+        // machines before it can be transferred a second time and duplicated.
+        _transferController.OnItemsTransferredToGame += (_, arg) => {
+            _webSocketSyncService?.SendDeletions(arg.CloudIds);
+        };
 
+        if (GlobalPaths.HasGrimDawnWineUserProfilePath) {
             _csvFileMonitor.StartMonitoring(GlobalPaths.CsvLocationIngoing, "*.csv");
             _replicaCsvFileMonitor.StartMonitoring(GlobalPaths.CsvReplicaReadLocation, "*.json");
             _csvParsingService.Start();
-
+            Logger.Debug($"Monitoring incoming items: {GlobalPaths.CsvLocationIngoing}");
 
             var preloadThread= new Thread(_itemReplicaParser.Preload);
             preloadThread.Start();
-
-            Logger.Debug("UI initialization complete");
         }
 
-        void TransferItem(object? ignored, EventArgs args) {
-            if (_transferController == null) {
+        Logger.Debug("UI initialization complete");
+
+        _webView.NavigationCompleted += Browser_NavigationCompleted;
+        _webView.WebMessageReceived += (_, args) =>
+        {
+            if (!string.IsNullOrEmpty(args.Body))
+                HandleJavaScriptMessageAsync(args.Body)
+                    .ContinueWith(task =>
+                    {
+                        Logger.Error($"JavaScript message handler failed: {task.Exception}");
+                    },
+                    TaskContinuationOptions.OnlyOnFaulted);
+        };
+
+        _webView.EnvironmentRequested += (_, args) =>
+        {
+            if (args is LinuxWpeWebViewEnvironmentRequestedEventArgs wpe)
+            {
+                wpe.PreferWebKitGtkInstead = true;
+                Logger.Info("Using WebKitGTK");
+            }
+        };
+        _webView.NavigationStarted += (_, args) =>
+        {
+            if (args.Request is Uri uri)
+            {
+                Logger.Info($"Navigation requested: {uri}");
+                if (!IsAllowedNavigation(uri))
+                {
+                    Logger.Warn($"BLOCKED navigation: {uri}");
+                    args.Cancel = true;
+                }
+            }
+        };
+        _webView.NewWindowRequested += (_, args) =>
+        {
+            Logger.Info($"New window requested: {args.Request}");
+            args.Handled = true;
+        };
+        _webView.AdapterCreated += (_, _) =>
+        {
+            Logger.Info("AdapterCreated");
+            var handle = _webView.TryGetPlatformHandle();
+            if (handle is not IGtkWebViewPlatformHandle gtkHandle)
+            {
+                Logger.Fatal($"Unexpected platform handle: {handle?.GetType().FullName ?? "null"}");
                 return;
             }
-
-            if (args is StashTransferEventArgs transferArgs) {
-                _transferController.TransferItem(transferArgs);
+            var _webViewHandle = gtkHandle.WebKitWebView;
+            if (_webViewHandle == IntPtr.Zero)
+            {
+                Logger.Fatal("IGtkWebViewPlatformHandle returned a null WebKitWebView.");
+                return;
             }
+            Logger.Debug($"WebKitWebView*: 0x{_webViewHandle.ToInt64():X}");
+            WebKitGtkInterop.Register(_webViewHandle, HandleWebResource);
+            Logger.Info("IAGrim URI scheme registered.");
+            _webView.Navigate(new Uri("iagrim://app/index.html"));
+        };
+    }
+
+    private Task TransferItem(object? ignored, StashTransferEventArgs args) {
+        if (_transferController == null) {
+            return Task.CompletedTask;
         }
 
+        return _transferController.TransferItem(args, this);
+    }
 
-        private void StartInjector() {
-            // Start looking for GD processes!
-            _registerWindowDelegate = CustomWndProc;
-            _window = new RegisterWindow("GDIAWindowClass", _registerWindowDelegate);
 
-            // This prevents a implicit cast to new ProgressChangedEventHandler(func), which would hit the GC and before being used from another thread
-            // Same happens when shutting down, fix unknown
-            _injectorCallbackDelegate = InjectorCallback;
+    private void StartInjector() {
+        // TODO ?
+        // Start looking for GD processes!
+        // _registerWindowDelegate = CustomWndProc;
+        // _window = new RegisterWindow("GDIAWindowClass", _registerWindowDelegate);
+        //
+        // // This prevents a implicit cast to new ProgressChangedEventHandler(func), which would hit the GC and before being used from another thread
+        // // Same happens when shutting down, fix unknown
+        // _injectorCallbackDelegate = InjectorCallback;
 
-            bool isWine = WineDetector.IsRunningInWine();
-            string? linuxHackPath = isWine ? GlobalPaths.LinuxHack : null;
+        bool isWine = true;
+        string? linuxHackPath = isWine ? GlobalPaths.LinuxHack : null;
 
-            string dllname = "ItemAssistantHook_x64.dll";
-            _injector = new InjectionHelper(_injectorCallbackDelegate, false, "Grim Dawn", string.Empty, dllname, linuxHackPath);
+        // string dllname = "ItemAssistantHook_x64.dll";
+        // _injector = new InjectionHelper(_injectorCallbackDelegate, false, "Grim Dawn", string.Empty, dllname, linuxHackPath);
 
-            // Under Wine, WM_COPYDATA messages don't work, so poll for .msg files instead
-            if (isWine) {
-                Logger.Info("Wine detected, starting file-based message polling");
-                _wineMessageTimer = new System.Windows.Forms.Timer();
-                _wineMessageTimer.Interval = 500;
-                _wineMessageTimer.Tick += WineMessagePollTick;
-                _wineMessageTimer.Start();
-            }
+        // Under Wine, WM_COPYDATA messages don't work, so poll for .msg files instead
+        if (isWine) {
+            var settingsService = _serviceProvider.Get<SettingsService>();
+            if (settingsService.GetLocal().UseDllHookFiles)
+                HookFiles.UpdateHookFiles(settingsService.GetLocal().GrimDawnLocation);
+            var messageMonitor = new CsvFileMonitor();
+            messageMonitor!.OnModified += (_, arg) => {
+                var csvEvent = arg as CsvFileMonitor.CsvEvent;
+                if (!string.IsNullOrEmpty(csvEvent.Filename))
+                    WineMessageHandler(csvEvent.Filename);
+            };
+            messageMonitor.StartMonitoring(linuxHackPath, "*.msg");
+            // Logger.Info("Wine detected, starting file-based message polling");
+            // _wineMessageTimer = new DispatcherTimer {
+            //     Interval = TimeSpan.FromMilliseconds(500)
+            // };
+            //
+            // _wineMessageTimer.Tick += WineMessagePollTick;
+            // _wineMessageTimer.Start();
         }
+    }
 
-        /// <summary>
-        /// Poll the LinuxHack folder for .msg files written by the injected DLL.
-        /// File format (binary, matching COPYDATASTRUCT layout):
-        ///   bytes 0-3:  cbData (int32, message type)
-        ///   bytes 4-7:  dwData (int32, data length)
-        ///   bytes 8+:   lpData (raw data bytes)
-        /// Files older than 30 seconds are deleted without reading.
-        /// Files younger than 2 seconds are skipped (may still be written).
-        /// </summary>
-        private void WineMessagePollTick(object? sender, EventArgs e) {
-            try {
-                var linuxHackPath = GlobalPaths.LinuxHack;
-                if (!Directory.Exists(linuxHackPath)) return;
+    /// <summary>
+    /// Poll the LinuxHack folder for .msg files written by the injected DLL.
+    /// File format (binary, matching COPYDATASTRUCT layout):
+    ///   bytes 0-3:  cbData (int32, message type)
+    ///   bytes 4-7:  dwData (int32, data length)
+    ///   bytes 8+:   lpData (raw data bytes)
+    /// Files older than 30 seconds are deleted without reading.
+    /// Files younger than 2 seconds are skipped (may still be written).
+    /// </summary>
+    // private void WineMessagePollTick(object? sender, EventArgs e) {
+    private void WineMessageHandler(string file) {
+        try {
+            // var linuxHackPath = GlobalPaths.LinuxHack;
+            // if (!Directory.Exists(linuxHackPath)) return;
+            //
+            // foreach (var file in Directory.GetFiles(linuxHackPath, "*.msg")) {
+                try {
+                    var fileAge = DateTime.Now - File.GetLastWriteTime(file);
 
-                foreach (var file in Directory.GetFiles(linuxHackPath, "*.msg")) {
-                    try {
-                        var fileAge = DateTime.Now - File.GetLastWriteTime(file);
-
-                        // Stale message, just delete
-                        if (fileAge.TotalSeconds > 30) {
-                            File.Delete(file);
-                            continue;
-                        }
-
-                        var bytes = File.ReadAllBytes(file);
+                    // Stale message, just delete
+                    if (fileAge.TotalSeconds > 30) {
                         File.Delete(file);
-
-                        if (bytes.Length < 8) {
-                            Logger.Warn($"Wine message file too small: {file} ({bytes.Length} bytes)");
-                            continue;
-                        }
-
-                        int type = BitConverter.ToInt32(bytes, 0);
-                        int dataLength = BitConverter.ToInt32(bytes, 4);
-
-                        byte[] data;
-                        string stringData = string.Empty;
-
-                        if (dataLength > 0 && bytes.Length >= 8 + dataLength) {
-                            data = new byte[dataLength];
-                            Array.Copy(bytes, 8, data, 0, dataLength);
-                            // Try to read as unicode string
-                            try {
-                                stringData = System.Text.Encoding.Unicode.GetString(data).TrimEnd('\0');
-                            }
-                            catch {
-                                // Not a valid string, that's fine
-                            }
-                        }
-                        else {
-                            data = Array.Empty<byte>();
-                        }
-
-                        var msg = new RegisterWindow.DataAndType(type, data, stringData);
-                        CustomWndProc(msg);
+                        return;
                     }
-                    catch (IOException) {
-                        // File may be locked, skip and retry next poll
+
+                    var bytes = File.ReadAllBytes(file);
+                    File.Delete(file);
+
+                    if (bytes.Length < 8) {
+                        Logger.Warn($"Wine message file too small: {file} ({bytes.Length} bytes)");
+                        return;
                     }
-                    catch (Exception ex) {
-                        Logger.Warn($"Error processing wine message file: {ex.Message}");
+
+                    int type = BitConverter.ToInt32(bytes, 0);
+                    int dataLength = BitConverter.ToInt32(bytes, 4);
+
+                    byte[] data;
+                    string stringData = string.Empty;
+
+                    if (dataLength > 0 && bytes.Length >= 8 + dataLength) {
+                        data = new byte[dataLength];
+                        Array.Copy(bytes, 8, data, 0, dataLength);
+                        // Try to read as unicode string
+                        try {
+                            stringData = System.Text.Encoding.Unicode.GetString(data).TrimEnd('\0');
+                        }
+                        catch {
+                            // Not a valid string, that's fine
+                        }
                     }
+                    else {
+                        data = Array.Empty<byte>();
+                    }
+
+                    var msg = new RegisterWindow.DataAndType(type, data, stringData);
+                    CustomWndProc(msg);
                 }
-            }
-            catch (Exception ex) {
-                Logger.Warn($"Error polling wine message files: {ex.Message}");
-            }
-        }
-
-
-        #region Tray and Menu
-
-        /// <summary>
-        /// Minimize to tray
-        /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="e"></param>
-        private void OnMinimizeWindow(object? sender, EventArgs e) {
-            _usageStatisticsReporter.ResetLastMinimized();
-            _automaticUpdateChecker.ResetLastMinimized();
-        }
-
-
-        private void trayContextMenuStrip_Opening(object sender, CancelEventArgs e) {
-            e.Cancel = false;
-        }
-
-        private void exitToolStripMenuItem_Click(object sender, EventArgs e) {
-            Close();
-        }
-
-        #endregion Tray and Menu
-
-
-        private void SetItemsClipboard(object? ignored, EventArgs _args) {
-            if (InvokeRequired) {
-                Invoke((System.Windows.Forms.MethodInvoker) delegate { SetItemsClipboard(ignored, _args); });
-            }
-            else {
-                if (_args is ClipboardEventArg { Text: { } } args) {
-                    Clipboard.SetText(args.Text);
+                catch (IOException ex) {
+                    // File may be locked, skip and retry next poll
+                    Logger.Warn($"Error processing wine message file: {ex.Message}");
                 }
+                // catch (Exception ex) {
+                //     Logger.Warn($"Error processing wine message file: {ex.Message}");
+                // }
+            // }
+        }
+        catch (Exception ex) {
+            Logger.Warn($"Error handling wine message files: {ex.Message}");
+        }
+    }
 
-                _tooltipHelper.ShowTooltipAtMouse(RuntimeSettings.Language!.GetTag("iatag_copied_clipboard"), _cefBrowserHandler.BrowserControl!);
+    private void OnParseComplete(object? sender, EventArgs args)
+    {
+        var cacher = _serviceProvider.Get<TransferStashServiceCache>();
+        cacher.Refresh();
+        var databaseItemDao = _serviceProvider.Get<IDatabaseItemDao>();
+        var isGrimParsed = databaseItemDao.GetRowCount() > 0;
+        Dispatcher.UIThread.Post(() => { _cefBrowserHandler.SetIsGrimParsed(isGrimParsed); });
+    }
+
+    // TODO
+    // #region Tray and Menu
+    //
+    // /// <summary>
+    // /// Minimize to tray
+    // /// </summary>
+    // /// <param name="sender"></param>
+    // /// <param name="e"></param>
+    // private void OnMinimizeWindow(object? sender, EventArgs e) {
+    //     _usageStatisticsReporter.ResetLastMinimized();
+    //     _automaticUpdateChecker.ResetLastMinimized();
+    // }
+    //
+    //
+    // private void trayContextMenuStrip_Opening(object sender, CancelEventArgs e) {
+    //     e.Cancel = false;
+    // }
+    //
+    // private void exitToolStripMenuItem_Click(object sender, EventArgs e) {
+    //     Close();
+    // }
+    //
+    // #endregion Tray and Menu
+
+    private async void SetItemsClipboard(object? ignored, EventArgs args)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => SetItemsClipboard(ignored, args));
+            return;
+        }
+
+        if (args is ClipboardEventArg { Text: { } text })
+        {
+            if (Clipboard != null)
+            {
+                Logger.Info($"Copying {text.Length} characters to clipboard");
+                var data = new DataTransfer();
+                data.Add(DataTransferItem.CreateText(text));
+                await Clipboard.SetDataAsync(data);
             }
         }
 
-        private void openToolStripMenuItem_Click(object sender, EventArgs e) {
-            _minimizeToTrayHandler?.notifyIcon_MouseDoubleClick(sender, null);
+        TooltipHelper.ShowTooltipAtMouse(RuntimeSettings.Language!.GetTag("iatag_copied_clipboard"), _webView);
+    }
+
+
+    private async Task HandleJavaScriptMessageAsync(string json)
+    {
+        JavaScriptMessage? request;
+        try {
+            request = JsonConvert.DeserializeObject<JavaScriptMessage>(json, _serializerSettings);
+        }
+        catch (JsonException ex) {
+            Logger.Error($"Invalid JavaScript message: {ex.Message}");
+            return;
         }
 
-    } // CLASS
+        if (string.IsNullOrWhiteSpace(request?.Method)) {
+            Logger.Error("JavaScript message has no method.");
+            return;
+        }
+
+        try {
+            var result = await _searchController.JsIntegration.HandleMessage(json);
+
+            if (!string.IsNullOrWhiteSpace(request.Id)) {
+                await SendJavaScriptResponseAsync(request.Id, result);
+            }
+        }
+        catch (Exception ex) {
+            Logger.Error($"Failed handling JavaScript request {request.Method}", ex);
+            if (!string.IsNullOrWhiteSpace(request.Id)) {
+                await SendJavaScriptResponseAsync(request.Id, null, ex.Message);
+            }
+        }
+    }
+
+    private async Task SendJavaScriptResponseAsync(string requestId, string? result, string? error = null)
+    {
+        var idJson = JsonConvert.SerializeObject(requestId, _serializerSettings);
+        // result is already JSON from JavascriptIntegration for methods
+        // such as TransferItem/GetTranslationStrings/etc.
+        // var resultJson = result ?? "null";
+        // result is a C# string containing JSON.
+        // Serialize it as a JavaScript string literal.
+        var resultJson = JsonConvert.SerializeObject(result, _serializerSettings);
+        var errorJson = JsonConvert.SerializeObject(error, _serializerSettings);
+
+        Logger.Debug($"Sending JavaScript response for {requestId}: {resultJson}");
+        await _webView.InvokeScript($$"""window.__coreResponse({{idJson}}, {{resultJson}}, {{errorJson}});""");
+    }
+
+    private static bool IsAllowedNavigation(Uri uri)
+    {
+        if (!uri.IsAbsoluteUri)
+            return false;
+
+        if (!string.Equals(uri.Scheme, "iagrim", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+        if (!string.Equals(uri.Host, "app", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+        return true;
+    }
+
+    private static bool ContainsSymlink(string resourcesRoot, string file)
+    {
+        var root = Path.GetFullPath(resourcesRoot);
+        var current = root;
+        var relative = Path.GetRelativePath(root, Path.GetFullPath(file));
+        foreach (var part in relative.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, part);
+            if (File.Exists(current))
+            {
+                var info = new FileInfo(current);
+                if (info.LinkTarget != null)
+                    return true;
+            }
+            else if (Directory.Exists(current))
+            {
+                var info = new DirectoryInfo(current);
+                if (info.LinkTarget != null)
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool IsInside(string root, string path)
+    {
+        root = Path.GetFullPath(root);
+
+        path = Path.GetFullPath(path);
+
+        if (!root.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal))
+        {
+            root += Path.DirectorySeparatorChar;
+        }
+
+        return path.StartsWith(root, StringComparison.Ordinal);
+    }
+
+    private static void HandleWebResource(IntPtr request, IntPtr userData)
+    {
+        var uriString = WebKitGtkInterop.GetUri(request);
+        Logger.Debug($"Resource request: {uriString}");
+        if (!Uri.TryCreate(uriString, UriKind.Absolute, out var uri))
+        {
+            WebKitGtkInterop.Finish(request, Encoding.UTF8.GetBytes("Forbidden"), "text/plain; charset=utf-8");
+            return;
+        }
+
+        if (!IsAllowedNavigation(uri))
+        {
+            WebKitGtkInterop.Finish(request, Encoding.UTF8.GetBytes("Forbidden"), "text/plain; charset=utf-8");
+            return;
+        }
+
+        var path = WebKitGtkInterop.GetPath(request);
+        var resourcesRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "Resources"));
+        var relativePath = Uri.UnescapeDataString(path).TrimStart('/');
+        if (relativePath.Contains('\0'))
+        {
+            WebKitGtkInterop.Finish(request, Encoding.UTF8.GetBytes("Forbidden"), "text/plain; charset=utf-8");
+            return;
+        }
+
+        var file = Path.GetFullPath(Path.Combine(resourcesRoot, relativePath));
+        if (!IsInside(resourcesRoot, file))
+        {
+            WebKitGtkInterop.Finish(request, Encoding.UTF8.GetBytes("Forbidden"), "text/plain; charset=utf-8");
+            return;
+        }
+
+        if (ContainsSymlink(resourcesRoot, file))
+        {
+            WebKitGtkInterop.Finish(request, Encoding.UTF8.GetBytes("Forbidden"), "text/plain; charset=utf-8");
+            return;
+        }
+
+        if (!File.Exists(file))
+        {
+            var storageRoot = Path.GetFullPath(GlobalPaths.StorageFolder);
+            var storageFile = Path.GetFullPath(Path.Combine(storageRoot, relativePath));
+            if (!IsInside(storageRoot, storageFile))
+            {
+                WebKitGtkInterop.Finish(request, Encoding.UTF8.GetBytes("Forbidden"), "text/plain; charset=utf-8");
+                return;
+            }
+            file = storageFile;
+        }
+
+        if (!File.Exists(file))
+        {
+            WebKitGtkInterop.Finish(request, Encoding.UTF8.GetBytes("Not found"), "text/plain; charset=utf-8");
+            return;
+        }
+
+        Logger.Debug($"Serving: {file}");
+        var data = File.ReadAllBytes(file);
+        WebKitGtkInterop.Finish(request, data, GetContentType(file));
+    }
+
+    private static string GetContentType(string file)
+    {
+        return Path.GetExtension(file).ToLowerInvariant()
+            switch
+            {
+                ".html" => "text/html; charset=utf-8",
+                ".js" => "text/javascript; charset=utf-8",
+                ".css" => "text/css; charset=utf-8",
+                ".json" => "application/json; charset=utf-8",
+                ".svg" => "image/svg+xml",
+                ".png" => "image/png",
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".gif" => "image/gif",
+                ".webp" => "image/webp",
+                ".ico" => "image/x-icon",
+                ".woff" => "font/woff",
+                ".woff2" => "font/woff2",
+                ".ttf" => "font/ttf",
+                ".map" => "application/json",
+                _ => "application/octet-stream"
+            };
+    }
 }

@@ -1,0 +1,33 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="IAGrim.UI.Tabs.SplitSearchWindow">
+
+    <Grid ColumnDefinitions="340,5,*">
+        <Border Grid.Column="0" Padding="4">
+            <ContentControl Name="FilterPanel" />
+        </Border>
+
+        <GridSplitter Grid.Column="1" ResizeDirection="Columns" Background="Transparent" />
+
+        <Grid Grid.Column="2" RowDefinitions="Auto,*">
+            <WrapPanel Grid.Row="0" Margin="4,20,4,3" VerticalAlignment="Top">
+                <TextBox Name="SearchBox" Width="300" MaxLength="255" VerticalAlignment="Center" Tag="iatag_ui_searchbox_tooltip" />
+                <CheckBox Name="OrderByLevel" Margin="8,0,4,0" IsChecked="True" VerticalAlignment="Center" Tag="iatag_ui_orderbylevel">Order By Level</CheckBox>
+                <ComboBox Name="ItemQuality" Width="104" Margin="4,0" VerticalAlignment="Center" Tag="iatag_ui_itemquality_tooltip"/>
+                <ComboBox Name="SlotFilter" Width="139" Margin="4,0" VerticalAlignment="Center" Tag="iatag_ui_slotfilter_tooltip"/>
+                <ComboBox Name="ModFilter" Width="118" Margin="4,0" VerticalAlignment="Center" Tag="iatag_ui_modfilter_tooltip"/>
+                <Border Margin="4,0" Padding="6,3" BorderBrush="#302D29" BorderThickness="1" CornerRadius="3" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Level" Tag="iatag_ui_level_requirement" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                        <TextBox Name="MinLevel" Width="34" MaxLength="3" Text="0" TextAlignment="Center" VerticalContentAlignment="Center" Tag="iatag_ui_minlevel_tooltip"/>
+                        <TextBlock Text="-" Margin="5,0" VerticalAlignment="Center"/>
+                        <TextBox Name="MaxLevel" Width="34" MaxLength="3" Text="110" TextAlignment="Center" VerticalContentAlignment="Center" Tag="iatag_ui_maxlevel_tooltip"/>
+                    </StackPanel>
+                </Border>
+                <Button Name="ClearFiltersButton" Content="Reset Filters" Margin="4,0" VerticalAlignment="Center" Click="ClearFiltersButton_Click"/>
+            </WrapPanel>
+
+            <ContentControl Grid.Row="1" Name="WebViewHost" Background="{DynamicResource IAGrimBackground}" Focusable="False"/>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Drawing;
-using System.Data;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
+﻿using Avalonia.Controls;
 using IAGrim.Services.ItemStats;
+using IAGrim.Theme;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace IAGrim.UI.Filters {
     public partial class Resistances : UserControl {
@@ -21,7 +16,7 @@ namespace IAGrim.UI.Filters {
         private List<(FirefoxCheckBox cb, string[] fields)> SelectedStatGroups() {
             var groups = new List<(FirefoxCheckBox, string[])>();
 
-            if (resistElemental.Checked) {
+            if (resistElemental.IsChecked == true) {
                 groups.Add((resistElemental, new[] { "defensiveElementalResistance" }));
             }
 
@@ -41,7 +36,7 @@ namespace IAGrim.UI.Filters {
             };
 
             foreach (var (cb, damageType) in resistTypes) {
-                if (!cb.Checked)
+                if (cb.IsChecked != true)
                     continue;
 
                 groups.Add((cb, new[] {
@@ -52,7 +47,7 @@ namespace IAGrim.UI.Filters {
                 }));
             }
 
-            if (resistSlow.Checked) {
+            if (resistSlow.IsChecked == true) {
                 groups.Add((resistSlow, new[] { "defensiveTotalSpeedResistance" }));
             }
 

@@ -12,7 +12,6 @@ public:
 	InventorySack_AddItem();
 	InventorySack_AddItem(DataQueue* dataQueue, HANDLE hEvent);
 	void EnableHook() override;
-	void DisableHook() override;
 
 	/// <summary>
 	/// If the IA client is actively running (if not: Just disable all extra functionality)

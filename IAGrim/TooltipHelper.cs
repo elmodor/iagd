@@ -1,93 +1,60 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Windows.Forms;
-using System.Drawing;
-using System.Diagnostics;
+using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
 
 namespace EvilsoftCommons {
     /// <summary>
-    /// Tooltip helper utility
-    /// Must be disposed before program exit
+    /// Tooltip helper utility.
     /// </summary>
-    public class TooltipHelper : IDisposable {
-        private ToolTip? _tooltip;
-        private ToolTip Tooltip {
-            get {
-                if (_tooltip == null)
-                    _tooltip = new ToolTip();
+    public static class TooltipHelper {
+        private const int TooltipDuration = 2000;
 
-                return _tooltip;
-            }
+        /// <summary>
+        /// Show a tooltip at a given control.
+        /// </summary>
+        public static async Task ShowTooltipForControl(string text, Control control, bool focus = true) {
+            ToolTip.SetTip(control, text);
+            ToolTip.SetIsOpen(control, true);
+            if (focus)
+                control.Focus();
+            await Task.Delay(TooltipDuration);
+            ToolTip.SetIsOpen(control, false);
         }
 
+        public enum TooltipLocation {LEFT, TOP, RIGHT, BOTTOM}
 
-        ~TooltipHelper() {
-            Dispose();
+        /// <summary>
+        /// Show a tooltip at a given location relative to a control.
+        /// </summary>
+        public static async Task ShowTooltipForControl(string text, Control control, TooltipLocation location) {
+            ToolTip.SetTip(control, text);
+            ToolTip.SetPlacement(control, GetPlacementMode(location));
+            ToolTip.SetIsOpen(control, true);
+            await Task.Delay(TooltipDuration);
+            ToolTip.SetIsOpen(control, false);
         }
 
         /// <summary>
-        /// Show a tooltip at a given control
+        /// Show a tooltip near the mouse position.
         /// </summary>
-        /// <param name="control"></param>
-        public void ShowTooltipForControl(string text, Control control, bool focus = true) {
-            Point p = new Point(0, -(control.Height + 20));
-
-            Debug.Assert(control as Form == null);
-
-            Tooltip.IsBalloon = true;
-            Tooltip.Show(text, control, p, 2000);
-            if (focus)
-                control.Focus();
+        public static async Task ShowTooltipAtMouse(string text, Control control) {
+            ToolTip.SetTip(control, text);
+            ToolTip.SetPlacement(control, PlacementMode.Pointer);
+            ToolTip.SetIsOpen(control, true);
+            await Task.Delay(TooltipDuration);
+            ToolTip.SetIsOpen(control, false);
         }
 
-        public enum TooltipLocation {
-            LEFT, TOP, RIGHT, BOTTOM
-        }
-
-        public void ShowTooltipForControl(string text, Control control, TooltipLocation location) {
-            Point p;
-            switch (location) {
-                case TooltipLocation.TOP:
-                    p = new Point(0, -(control.Height + 20));
-                    break;
-                case TooltipLocation.LEFT:
-                    p = new Point(-20, 0);
-                    break;
-                case TooltipLocation.RIGHT:
-                    p = new Point(control.Width + 5, 0);
-                    break;
-                case TooltipLocation.BOTTOM:
-                default:
-                    p = new Point(0, (control.Height + 20));
-                    break;
-            }
-            Debug.Assert(control as Form == null);
-
-            Tooltip.IsBalloon = location == TooltipLocation.TOP;
-            Tooltip.Show(text, control, p, 2000);
-        }
-
-
-
-        public void ShowTooltipAtMouse(string text, Control control) {
-            Point p = control.PointToClient(Cursor.Position);
-            p.Y = p.Y - 12 * 2;
-
-            Debug.Assert(control as Form == null);
-
-            //tooltip.IsBalloon = true;
-            Tooltip.Show(text, control, p, 2000);
-        }
-
-        public void Dispose() {
-            if (_tooltip != null) {
-                _tooltip.RemoveAll();
-                _tooltip.Dispose();
-                _tooltip = null;
-            }
+        private static PlacementMode GetPlacementMode(TooltipLocation location) {
+            return location switch {
+                TooltipLocation.LEFT => PlacementMode.Left,
+                TooltipLocation.TOP => PlacementMode.Top,
+                TooltipLocation.RIGHT => PlacementMode.Right,
+                TooltipLocation.BOTTOM => PlacementMode.Bottom,
+                _ => PlacementMode.Bottom
+            };
         }
     }
-
 }

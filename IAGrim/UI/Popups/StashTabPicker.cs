@@ -1,15 +1,16 @@
 ﻿using System;
-using System.Drawing;
-using System.Windows.Forms;
-using IAGrim.Parsers.Arz;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.Media;
 using IAGrim.Services;
 using IAGrim.Settings;
-using IAGrim.Settings.Dto;
+using IAGrim.Overwrites.MessageBox;
+using IAGrim.Parsers.Arz;
 using IAGrim.Utilities;
-using log4net;
 
 namespace IAGrim.UI.Popups {
-    public partial class StashTabPicker : Form {
+    public partial class StashTabPicker : Window {
         private readonly SettingsService _settings;
         private readonly int _numStashTabs = 6;
         private readonly IHelpService _helpService;
@@ -20,35 +21,35 @@ namespace IAGrim.UI.Popups {
             _helpService = helpService;
         }
 
-        private void buttonClose_Click(object sender, EventArgs e) {
+        private void buttonClose_Click(object sender, RoutedEventArgs e) {
             if (_settings.GetLocal().StashToLootFrom == _settings.GetLocal().StashToDepositTo &&
                 _settings.GetLocal().StashToLootFrom != 0) {
                 MessageBox.Show(
                     "I cannot overstate what an incredibly bad experience it would be to use only one tab.",
                     "Yeah.. Nope!",
                     MessageBoxButtons.OK,
-                    MessageBoxIcon.Exclamation
+                    MessageBoxIcon.Error
                 );
             }
             else {
                 this.Close();
             }
         }
-        
-        private FirefoxRadioButton CreateCheckbox(string name, string label, string text, Point position, FirefoxRadioButton.CheckedChangedEventHandler callback) {
-            FirefoxRadioButton checkbox = new FirefoxRadioButton();
-            checkbox.Bold = false;
-            checkbox.Checked = false;
-            checkbox.EnabledCalc = true;
-            checkbox.Font = new Font("Segoe UI", 10F);
-            checkbox.ForeColor = Color.FromArgb(((int) (((byte) (66)))), ((int) (((byte) (78)))), ((int) (((byte) (90)))));
-            checkbox.Location = position;
+
+        private RadioButton CreateCheckbox(string name, string label, string text, EventHandler<RoutedEventArgs> callback) {
+            RadioButton checkbox = new RadioButton();
+            checkbox.FontSize = 10;
+            checkbox.Foreground = new SolidColorBrush(Color.FromRgb(66, 78, 90));
             checkbox.Name = name;
-            checkbox.Size = new Size(188, 27);
-            checkbox.TabIndex = 3;
             checkbox.Tag = label;
-            checkbox.Text = text;
-            checkbox.CheckedChanged += callback;
+            checkbox.Content = text;
+            checkbox.Width = 188;
+            checkbox.Height = 27;
+            checkbox.PropertyChanged += (sender, args) => {
+                if (args.Property == RadioButton.IsCheckedProperty && checkbox.IsChecked == true) {
+                    callback(sender, new RoutedEventArgs());
+                }
+            };
             return checkbox;
         }
 
@@ -61,59 +62,55 @@ namespace IAGrim.UI.Popups {
 
             for (int i = 1; i <= Math.Max(5, _numStashTabs); i++) {
                 int p = i; // Don't reference out scope (mutated)
-                FirefoxRadioButton.CheckedChangedEventHandler callback = (o, args) => {
+                EventHandler<RoutedEventArgs> callback = (o, args) => {
                     if (p <= _numStashTabs) {
                         // Don't trust the "Firefox framework" to not trigger clicks on disabled buttons.
                         _settings.GetLocal().StashToDepositTo = p;
                     }
                 };
 
-                int y = 32 + 33 * i;
-                var cb = CreateCheckbox($"moveto_tab_{i}", $"iatag_ui_tab_{i}", $"Tab {i}", new Point(6, y), callback);
+                var cb = CreateCheckbox($"moveto_tab_{i}", $"iatag_ui_tab_{i}", $"Tab {i}", callback);
                 
-                cb.Checked = _settings.GetLocal().StashToDepositTo == i;
-                cb.Enabled = i <= _numStashTabs;
-                cb.EnabledCalc = i <= _numStashTabs;
-                this.gbMoveTo.Controls.Add(cb);
-                helpWhyAreTheseDisabled.Visible = _numStashTabs <= 4;
+                cb.IsChecked = _settings.GetLocal().StashToDepositTo == i;
+                cb.IsEnabled = i <= _numStashTabs;
+                moveToPanel.Children.Add(cb);
+                helpWhyAreTheseDisabled.IsVisible = _numStashTabs <= 4;
             }
 
 
             for (int i = 1; i <= Math.Max(5, _numStashTabs); i++) {
                 int p = i; // Don't reference out scope (mutated)
-                FirefoxRadioButton.CheckedChangedEventHandler callback = (o, args) => {
+                EventHandler<RoutedEventArgs> callback = (o, args) => {
                     if (p <= _numStashTabs) {
                         // Don't trust the "Firefox framework" to not trigger clicks on disabled buttons.
                         _settings.GetLocal().StashToLootFrom = p;
                     }
                 };
 
-                int y = 32 + 33 * i;
-                var cb = CreateCheckbox($"lootfrom_tab_{i}", $"iatag_ui_tab_{i}", $"Tab {i}", new Point(6, y), callback);
-                cb.Checked = _settings.GetLocal().StashToLootFrom == i;
-                cb.Enabled = i <= _numStashTabs;
-                cb.EnabledCalc = i <= _numStashTabs;
-                this.gbLootFrom.Controls.Add(cb);
+                var cb = CreateCheckbox($"lootfrom_tab_{i}", $"iatag_ui_tab_{i}", $"Tab {i}", callback);
+                cb.IsChecked = _settings.GetLocal().StashToLootFrom == i;
+                cb.IsEnabled = i <= _numStashTabs;
+                lootFromPanel.Children.Add(cb);
             }
             
 
 
-            radioOutputSecondToLast.Checked = _settings.GetLocal().StashToDepositTo == 0;
-            radioInputLast.Checked = _settings.GetLocal().StashToLootFrom == 0;
+            radioOutputSecondToLast.IsChecked = _settings.GetLocal().StashToDepositTo == 0;
+            radioInputLast.IsChecked = _settings.GetLocal().StashToLootFrom == 0;
 
-            LocalizationLoader.ApplyLanguage(Controls, RuntimeSettings.Language!);
+            LocalizationLoader.ApplyLanguage(this, RuntimeSettings.Language!);
         }
 
-        private void radioOutputSecondToLast_CheckedChanged(object sender, EventArgs e) {
+        private void radioOutputSecondToLast_CheckedChanged(object sender, RoutedEventArgs e) {
             _settings.GetLocal().StashToDepositTo = 0;
         }
 
-        private void radioInputLast_CheckedChanged(object sender, EventArgs e) {
+        private void radioInputLast_CheckedChanged(object sender, RoutedEventArgs e) {
             _settings.GetLocal().StashToLootFrom = 0;
         }
 
-        private void helpWhyAreTheseDisabled_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e) {
-            _helpService.ShowHelp(HelpService.HelpType.NotEnoughStashTabs);
+        private void helpWhyAreTheseDisabled_LinkClicked(object sender, RoutedEventArgs e) {
+            _helpService.ShowHelp(IHelpService.HelpType.NotEnoughStashTabs);
         }
     }
 }

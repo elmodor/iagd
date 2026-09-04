@@ -1,4 +1,8 @@
-﻿using System.Net;
+﻿using System;
+using System.Net;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using IAGrim.Backup.Cloud;
 using IAGrim.Parsers.Arz;
 using IAGrim.Services;
@@ -6,10 +10,10 @@ using IAGrim.Utilities;
 using IAGrim.Utilities.HelperClasses;
 
 namespace IAGrim.UI.Popups {
-    public partial class AddEditBuddy : Form {
+    public partial class AddEditBuddy : Window {
         private readonly IHelpService _helpService;
         private readonly RestService _restService;
-        
+
         public long BuddyId {
             get {
                 var t = tbBuddyId.Text;
@@ -30,15 +34,17 @@ namespace IAGrim.UI.Popups {
             _helpService = helpService;
             _restService = restService;
             InitializeComponent();
+
+            Opened += AddEditBuddy_Load;
         }
 
-        private void AddEditBuddy_Load(object sender, EventArgs e) {
-            LocalizationLoader.ApplyLanguage(Controls, RuntimeSettings.Language!);
-            tbBuddyId.KeyPress += buddyId_KeyPress;
-            tbBuddyNickname.KeyPress += nickname_KeyPress;
+        private void AddEditBuddy_Load(object? sender, EventArgs e) {
+            LocalizationLoader.ApplyLanguage(this, RuntimeSettings.Language!);
+            tbBuddyId.KeyDown += buddyId_KeyPress;
+            tbBuddyNickname.KeyDown += nickname_KeyPress;
 
-            if (tbBuddyId.Text.Length > 0) {
-                tbBuddyId.Enabled = false;
+            if (!string.IsNullOrEmpty(tbBuddyId.Text)) {
+                tbBuddyId.IsEnabled = false;
                 tbBuddyNickname.Focus();
             }
             else {
@@ -46,83 +52,57 @@ namespace IAGrim.UI.Popups {
             }
         }
 
-        private void lbHelpWhatisBuddyId_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e) {
-            _helpService.ShowHelp(HelpService.HelpType.WhatIsBuddyId);
+        private void lbHelpWhatisBuddyId_LinkClicked(object? sender, RoutedEventArgs e) {
+            _helpService.ShowHelp(IHelpService.HelpType.WhatIsBuddyId);
         }
 
-        private void lbHelpWhatisBuddyNickname_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e) {
-            _helpService.ShowHelp(HelpService.HelpType.WhatIsBuddyNickname);
+        private void lbHelpWhatisBuddyNickname_LinkClicked(object? sender, RoutedEventArgs e) {
+            _helpService.ShowHelp(IHelpService.HelpType.WhatIsBuddyNickname);
         }
 
-        private void buttonAdd_Click(object? sender, EventArgs e) {
-            if (tbBuddyId.Text.Length != 6) {
-                errorProvider1.SetError(tbBuddyId, RuntimeSettings.Language!.GetTag("iatag_ui_buddy_userid_numeric_error_message"));
-                errorProvider1.SetIconAlignment(tbBuddyId, ErrorIconAlignment.MiddleLeft);
+        private void buttonAdd_Click(object? sender, RoutedEventArgs e) {
+            if ((tbBuddyId.Text?.Length ?? 0) != 6) {
+                SetBuddyIdError(RuntimeSettings.Language!.GetTag("iatag_ui_buddy_userid_numeric_error_message"));
             }
-
-            else if (tbBuddyNickname.Text.Length <= 0) {
-                errorProvider1.SetError(tbBuddyNickname, RuntimeSettings.Language!.GetTag("iatag_ui_buddy_nickname_error_message"));
-                errorProvider1.SetIconAlignment(tbBuddyNickname, ErrorIconAlignment.MiddleLeft);
+            else if (string.IsNullOrEmpty(tbBuddyNickname.Text)) {
+                SetBuddyNicknameError(RuntimeSettings.Language!.GetTag("iatag_ui_buddy_nickname_error_message"));
             }
 
             else {
-                if (Verify(tbBuddyId.Text)) {
-                    DialogResult = DialogResult.OK;
-                    Close();
+                if (Verify(tbBuddyId.Text!)) {
+                    Close(true);
                 } else {
-                    errorProvider1.SetError(tbBuddyId, RuntimeSettings.Language!.GetTag("iatag_ui_buddy_userid_doesnotexist_error_message"));
-                    errorProvider1.SetIconAlignment(tbBuddyId, ErrorIconAlignment.MiddleLeft);
+                    SetBuddyIdError(RuntimeSettings.Language!.GetTag("iatag_ui_buddy_userid_doesnotexist_error_message"));
                 }
             }
         }
 
-        void buddyId_KeyPress(object? sender, KeyPressEventArgs e) {
-            // Disallow more than 6 characters
-            if (tbBuddyId.Text.Length >= 6 && !char.IsControl(e.KeyChar)) { // Non printable chars 0..31
-                e.Handled = true;
-                return;
-            }
-
-            // Allow numbers only
-            if (char.IsNumber(e.KeyChar) || char.IsControl(e.KeyChar)) {
-                e.Handled = false;
-                errorProvider1.Clear();
-            }
-            else {
-                e.Handled = true;
-                errorProvider1.SetError(tbBuddyId, RuntimeSettings.Language!.GetTag("iatag_ui_buddy_userid_numeric_error_message"));
-                errorProvider1.SetIconAlignment(tbBuddyId, ErrorIconAlignment.MiddleLeft);
-            }
-
-            // Enter/Return key
-            if (e.KeyChar == 13) {
-                if (tbBuddyId.Text.Length != 6) {
-                    errorProvider1.SetError(tbBuddyId, RuntimeSettings.Language!.GetTag("iatag_ui_buddy_userid_numeric_error_message"));
-                    errorProvider1.SetIconAlignment(tbBuddyId, ErrorIconAlignment.MiddleLeft);
+        void buddyId_KeyPress(object? sender, KeyEventArgs e) {
+            // Avalonia textbox already enforces max length
+            if (e.Key == Key.Enter) {
+                if ((tbBuddyId.Text?.Length ?? 0) != 6) {
+                    SetBuddyIdError(RuntimeSettings.Language!.GetTag("iatag_ui_buddy_userid_numeric_error_message"));
                 }
                 else {
                     // Verify if ID exists
-                    if (Verify(tbBuddyId.Text)) {
-                        e.Handled = true;
+                    if (Verify(tbBuddyId.Text!)) {
                         tbBuddyNickname.Focus();
                     }
                     else {
-                        errorProvider1.SetError(tbBuddyId, RuntimeSettings.Language!.GetTag("iatag_ui_buddy_userid_doesnotexist_error_message"));
-                        errorProvider1.SetIconAlignment(tbBuddyId, ErrorIconAlignment.MiddleLeft);
+                        SetBuddyIdError(RuntimeSettings.Language!.GetTag("iatag_ui_buddy_userid_doesnotexist_error_message"));
                     }
                 }
+                e.Handled = true;
             }
         }
 
-        void nickname_KeyPress(object? sender, KeyPressEventArgs e) {
-            // Enter
-            if (e.KeyChar == 13) {
-                if (tbBuddyNickname.Text.Length >= 1) {
+        void nickname_KeyPress(object? sender, KeyEventArgs e) {
+            if (e.Key == Key.Enter) {
+                if ((tbBuddyNickname.Text?.Length ?? 0) >= 1) {
                     buttonAdd_Click(sender, e);
                 }
                 else {
-                    errorProvider1.SetError(tbBuddyNickname, RuntimeSettings.Language!.GetTag("iatag_ui_buddy_nickname_error_message"));
-                    errorProvider1.SetIconAlignment(tbBuddyNickname, ErrorIconAlignment.MiddleLeft);
+                    SetBuddyNicknameError(RuntimeSettings.Language!.GetTag("iatag_ui_buddy_nickname_error_message"));
                 }
                 e.Handled = true;
             }
@@ -131,6 +111,23 @@ namespace IAGrim.UI.Popups {
         bool Verify(string buddyId) {
             var status = _restService.VerifyGet($"{Uris.BuddyItemsUrl}?id={buddyId}&ts=900000000000");
             return status == HttpStatusCode.OK;
+        }
+
+        private void SetBuddyIdError(string message) {
+            BuddyIdError.Text = message;
+            BuddyIdError.IsVisible = true;
+            tbBuddyId.Focus();
+        }
+
+        private void SetBuddyNicknameError(string message) {
+            BuddyNicknameError.Text = message;
+            BuddyNicknameError.IsVisible = true;
+            tbBuddyNickname.Focus();
+        }
+
+        private void ClearErrors() {
+            BuddyIdError.IsVisible = false;
+            BuddyNicknameError.IsVisible = false;
         }
     }
 }

@@ -11,7 +11,6 @@ public:
 	GameEngineUpdate();
 	GameEngineUpdate(DataQueue* dataQueue, HANDLE hEvent);
 	void EnableHook() override;
-	void DisableHook() override;
 
 protected:
 	// void GAME::GameEngine::Update(int)

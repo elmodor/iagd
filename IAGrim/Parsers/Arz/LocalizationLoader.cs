@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Windows.Forms;
+// using System.Windows.Forms;
 using IAGrim.Database;
 using IAGrim.Parsers.GameDataParsing.Model;
 using log4net;
 using StatTranslator;
+using Avalonia.Controls;
+using Avalonia.LogicalTree;
 
 namespace IAGrim.Parsers.Arz {
     public class LocalizationLoader {
@@ -20,47 +22,76 @@ namespace IAGrim.Parsers.Arz {
         /// Recursively check each control for .Tag == "iatag_*"
         /// If the tag is located and also found in the provided language pack, the controls text is updated
         /// </summary>
-        public static void ApplyLanguage(Control.ControlCollection c, ILocalizedLanguage lang) {
-            foreach (Control control in c) {
-                ApplyLanguage(control, lang);
-                ApplyLanguage(control.Controls, lang);
-            }
+        public static void ApplyLanguage(Control control, ILocalizedLanguage lang) {
+            ApplyLanguageRecursive(control, lang);
         }
 
-        public static void ApplyTooltipLanguage(ToolTip toolTip, Control.ControlCollection c, ILocalizedLanguage lang) {
-            foreach (Control control in c) {
-                ApplyLanguage(control, lang, toolTip);
-                ApplyTooltipLanguage(toolTip, control.Controls, lang);
-            }
+        public static void ApplyTooltipLanguage(Control control, ILocalizedLanguage lang) {
+            ApplyTooltipLanguageRecursive(control, lang);
         }
 
-        private static void ApplyLanguage(Control control, ILocalizedLanguage lang, ToolTip? toolTip = null) {
+        private static void ApplyTooltipLanguageRecursive(Control control, ILocalizedLanguage lang) {
             var tag = control.Tag?.ToString();
-            bool hasTag = tag?.StartsWith("iatag_") ?? false;
+            bool hasTag = !string.IsNullOrEmpty(tag) && tag.StartsWith("iatag_") && tag.EndsWith("_tooltip");
             if (hasTag) {
-                // TextBox and ComboBox tags are tooltip-only; skip them when not applying tooltips
-                if (toolTip == null && (control is TextBox || control is ComboBox)) return;
-
-                var localizedTag = lang.GetTag(tag!);
+                var localizedTag = lang.GetTag(tag);
                 if (!string.IsNullOrEmpty(localizedTag)) {
-                    if (toolTip != null) {
-                        toolTip.SetToolTip(control, localizedTag);
-                    }
-                    else {
-                        control.Text = localizedTag;
-                    }
+                    ToolTip.SetTip(control, localizedTag);
                 }
                 else if (lang.WarnIfMissing && _missingTagWarningCount < MaxMissingTagWarnings) {
                     _missingTagWarningCount++;
-                    Logger.WarnFormat("Could not find tag {0} in localization, defaulting to {0}={1}", tag,
-                        control.Text);
+                    Logger.WarnFormat("Could not find tooltip tag {0} in localization", tag);
                     if (_missingTagWarningCount == MaxMissingTagWarnings) {
                         Logger.Warn("Suppressing further missing localization tag warnings...");
                     }
                 }
             }
+            foreach (var child in control.GetLogicalChildren().OfType<Control>()) {
+                ApplyTooltipLanguageRecursive(child, lang);
+            }
         }
 
+        private static void ApplyLanguageRecursive(Control control, ILocalizedLanguage lang) {
+            var tag = control.Tag?.ToString();
+            bool hasTag = tag?.StartsWith("iatag_") ?? false;
+            if (hasTag) {
+                var localizedTag = lang.GetTag(tag!);
+                if (!string.IsNullOrEmpty(localizedTag)) {
+                    switch (control) {
+                        case TextBlock textBlock:
+                            textBlock.Text = localizedTag;
+                            break;
+
+                        case Window window:
+                            window.Title = localizedTag;
+                            break;
+
+                        case GroupBox groupBox:
+                            groupBox.Header = localizedTag;
+                            break;
+
+                        case ContentControl contentControl:
+                            contentControl.Content = localizedTag;
+                            break;
+
+                        // TextBox and ComboBox tags are tooltip-only; skip them when not applying tooltips
+                        case TextBox:
+                        case ComboBox:
+                            break;
+                    }
+                }
+                else if (lang.WarnIfMissing && _missingTagWarningCount < MaxMissingTagWarnings) {
+                    _missingTagWarningCount++;
+                    Logger.WarnFormat("Could not find tag {0} in localization", tag);
+                    if (_missingTagWarningCount == MaxMissingTagWarnings) {
+                        Logger.Warn("Suppressing further missing localization tag warnings...");
+                    }
+                }
+            }
+            foreach (var child in control.GetLogicalChildren().OfType<Control>()) {
+                ApplyLanguageRecursive(child, lang);
+            }
+        }
 
         /// <summary>
         /// Load language using a language code and English fallback.

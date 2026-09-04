@@ -1,0 +1,24 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:theme="using:IAGrim.Theme"
+             x:Class="IAGrim.UI.Filters.Resistances">
+
+    <Border Padding="4">
+        <StackPanel Spacing="2">
+            <TextBlock Text="Resistances" Tag="iatag_ui_resistances" FontWeight="Bold" Margin="4,4,4,8"/>
+            <theme:FirefoxCheckBox x:Name="resistPhysical" Tag="iatag_ui_resistance_physical" Content="Physical"/>
+            <theme:FirefoxCheckBox x:Name="resistPiercing" Tag="iatag_ui_resistance_piercing" Content="Piercing"/>
+            <theme:FirefoxCheckBox x:Name="resistFire" Tag="iatag_ui_resistance_fire" Content="Fire"/>
+            <theme:FirefoxCheckBox x:Name="resistCold" Tag="iatag_ui_resistance_cold" Content="Cold"/>
+            <theme:FirefoxCheckBox x:Name="resistLightning" Tag="iatag_ui_resistance_lightning" Content="Lightning"/>
+            <theme:FirefoxCheckBox x:Name="resistAether" Tag="iatag_ui_resistance_aether" Content="Aether"/>
+            <theme:FirefoxCheckBox x:Name="resistVitality" Tag="iatag_ui_resistance_vitality" Content="Vitality"/>
+            <theme:FirefoxCheckBox x:Name="resistChaos" Tag="iatag_ui_resistance_chaos" Content="Chaos"/>
+            <theme:FirefoxCheckBox x:Name="resistPoison" Tag="iatag_ui_resistance_poison" Content="Poison"/>
+            <theme:FirefoxCheckBox x:Name="resistElemental" Tag="iatag_ui_resistance_elemental" Content="Elemental"/>
+            <theme:FirefoxCheckBox x:Name="resistBleeding" Tag="iatag_ui_resistance_bleeding" Content="Bleeding"/>
+            <theme:FirefoxCheckBox x:Name="resistStun" Tag="iatag_ui_resistance_stun" Content="Stun"/>
+            <theme:FirefoxCheckBox x:Name="resistSlow" Tag="iatag_ui_resistance_slow" Content="Slow Resistance"/>
+        </StackPanel>
+    </Border>
+</UserControl>
