@@ -34,7 +34,10 @@ if(NOLOG)
     add_compile_definitions(NOLOG)
 endif()
 
-set(BOOST_ROOT "${CMAKE_SOURCE_DIR}/boost")
+
+set(BOOST_VERSION "1.92.0")
+string(REPLACE "." "_" BOOST_VERSION_UNDERSCORE "${BOOST_VERSION}")
+set(BOOST_ROOT "${CMAKE_BINARY_DIR}/boost_${BOOST_VERSION_UNDERSCORE}")
 set(BOOST_B2 "${BOOST_ROOT}/b2")
 set(BOOST_STAGE "${BOOST_ROOT}/stage")
 set(BOOST_LIB   "${BOOST_STAGE}/lib")
@@ -45,12 +48,24 @@ set(BOOST_THREAD_LIB
     "${BOOST_LIB}/libboost_thread.a"
 )
 
+include(ExternalProject)
+ExternalProject_Add(boost_download
+    URL "https://archives.boost.org/release/${BOOST_VERSION}/source-nodocs/boost_${BOOST_VERSION_UNDERSCORE}.tar.bz2"
+    DOWNLOAD_DIR "${CMAKE_BINARY_DIR}"
+    SOURCE_DIR "${BOOST_ROOT}"
+    CONFIGURE_COMMAND ""
+    BUILD_COMMAND ""
+    INSTALL_COMMAND ""
+)
+
 add_custom_command(
     OUTPUT "${BOOST_B2}"
     COMMAND
         /bin/bash "${BOOST_ROOT}/bootstrap.sh"
     WORKING_DIRECTORY
         "${BOOST_ROOT}"
+    DEPENDS
+        boost_download
     COMMENT
         "Bootstrapping Boost.Build"
     VERBATIM

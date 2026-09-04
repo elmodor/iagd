@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <process.h>
 #include "GrimTypes.h"
 #include "MessageType.h"
 #include "InventorySack_AddItem.h"
