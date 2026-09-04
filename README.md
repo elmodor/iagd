@@ -1,27 +1,33 @@
-# Grim Dawn Item Assistant
+# Grim Dawn Item Assistant for Linux
 
-For a binary download, see https://grimdawn.evilsoft.net
+For a AppImage download, see [the latest release](https://github.com/elmodor/iagd/releases)
 
-**Running on Linux? [See here](LINUX.md)** — Item Assistant has to be launched inside Grim Dawn's own Proton prefix, and that guide covers why and how.
+Currently not yet ported:  
+Character Backup when using steam cloud
+
+## Requirements
+For running this project you need `webkit2gtk-4.1` installed:  
+Arch: `webkit2gtk-4.1`  
+Debian/Ubuntu: `libwebkit2gtk-4.1-0`  
+Fedora: `webkit2gtk4.1`  
+openSUSE: `libwebkit2gtk-4_1-0`
+
+Furtheremore you have to set `WINEDLLOVERRIDES="winmm=n,b" %command%` as your launch option in steam (or similar if you start it differently)
+
+## Linux specifics
+Your data and items are saved according to XDG specc in `.local/share/IAGrim`.  
+The hook is injected via a dll loader `winmm`. It is automatically installed to your Grim Dawn install directories along with `ItemAssistantHook_x64.dll`. The loader will also load `DPYes` if the dll is present.  
+> [!IMPORTANT]
+> Item Assistant currently will automatically loot your items, even if you are not running the AppImage. The items will be stored in the wine prefix and will be stored into the database once you run the application.
 
 
+### Uninstall
+The best way is to remove the checkbox for `Use Dll Hooks` and click `Delete Dll Hooks` in the settings tab. You can also manually delete `winmm.dll` and `ItemAssistantHook_x64.dll` from your `x64` and `compat` directory. If you do not do this, Item Assistant will continue to loot your items!
 
 ## Issues running this project?
 
-
 ## Dependencies missing
-This project uses Nuget for external dependencies. TO install these, rightclick on the solution and select "restore packages" (Or run `Update-Package -reinstall` in the package manager console)
-
-
-
-Error    CS0246    The type or namespace name 'AutoUpdaterDotNET' could not be found (are you missing a using directive or an assembly reference?)    IAGrim    X:\Y\Z\iagd\IAGrim\UI\MainWindow.cs    13    Active
-
-This means you're missing the AutoUpdater.NET.dll file that IA uses for automatic updates.
-It can be obtained in two ways:
-* Copying it from an existing IA install
-* Compiling the "Auto updater" project, which is held separately from the IA solution. (SLN)
-Place this file under IAGrim\bin\Release
-
+See Requirements
 
 
 ## ItemAssistantHook.dll
@@ -32,6 +38,18 @@ IAGrim also depends on ItemAssistantHook.dll for detecting the status of various
 ## The web View
 [The item view is a (pr)react website, click here for more details](WebUI/README.md)
 
+
+# Building
+For building this project you need:  
+IAGrim:
+* dotnet-sdk
+WebUI:
+* nodejs
+* npm
+HookDll/DllLoader:
+* cmake
+* mingw-w64-gcc
+* python
 
 # Trouble understanding the code?
 
