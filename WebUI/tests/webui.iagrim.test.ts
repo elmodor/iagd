@@ -17,13 +17,8 @@ test('WebUI detects an IAGrim host', async ({ page }) => {
             DismissNumericFilterBanner: () => {},
         };
     });
-
     await page.goto('/');
-
-    const isEmbedded = await page.evaluate(() => {
-        return window.iagrim !== undefined;
-    });
-
+    const isEmbedded = await page.evaluate(() => { return window.iagrim !== undefined; });
     expect(isEmbedded).toBe(true);
 });
 
@@ -31,9 +26,7 @@ test('WebUI signals IAGrim when loaded', async ({ page }) => {
     await page.addInitScript(() => {
         window.invokeCSharpAction = () => {};
         window.iagrim = {
-            SignalReady: () => {
-                (window as any).__signalReadyCalled = true;
-            },
+            SignalReady: () => { (window as any).__signalReadyCalled = true; },
             RequestMoreItems: () => {},
             RequestCollectionData: () => {},
             TransferItem: () => '',
@@ -46,23 +39,15 @@ test('WebUI signals IAGrim when loaded', async ({ page }) => {
             DismissNumericFilterBanner: () => {},
         };
     });
-
     await page.goto('/');
-
-    await expect.poll(async () => {
-        return page.evaluate(() => {
-            return (window as any).__signalReadyCalled === true;
-        });
-    }).toBe(true);
+    await expect.poll(async () => { return page.evaluate(() => { return (window as any).__signalReadyCalled === true; }); }).toBe(true);
 });
 
 test('IAGrim can send items to the WebUI', async ({ page }) => {
     await page.addInitScript(() => {
         window.invokeCSharpAction = () => {};
         window.iagrim = {
-            SignalReady: () => {
-                (window as any).__signalReadyCalled = true;
-            },
+            SignalReady: () => { (window as any).__signalReadyCalled = true; },
             RequestMoreItems: () => {},
             RequestCollectionData: () => {},
             TransferItem: () => JSON.stringify({ success: true }),
@@ -75,15 +60,9 @@ test('IAGrim can send items to the WebUI', async ({ page }) => {
             DismissNumericFilterBanner: () => {},
         };
     });
-
     await page.goto('/');
-
     // Wait until App.componentDidMount() has run and window.message has been installed.
-    await expect.poll(async () => {
-        return page.evaluate(() => {
-            return (window as any).__signalReadyCalled === true;
-        });
-    }).toBe(true);
+    await expect.poll(async () => { return page.evaluate(() => { return (window as any).__signalReadyCalled === true; }); }).toBe(true);
 
     await page.evaluate(() => {
         window.message({
@@ -119,7 +98,6 @@ test('IAGrim can send items to the WebUI', async ({ page }) => {
             },
         });
     });
-
     await expect(page.getByText('Test Item')).toBeVisible();
 });
 
@@ -127,18 +105,10 @@ test('WebUI can transfer an item through IAGrim', async ({ page }) => {
     await page.addInitScript(() => {
         window.invokeCSharpAction = () => {};
         window.iagrim = {
-            SignalReady: () => {
-                (window as any).__signalReadyCalled = true;
-            },
+            SignalReady: () => { (window as any).__signalReadyCalled = true; },
             RequestMoreItems: () => {},
             RequestCollectionData: () => {},
-            TransferItem: (url: object[], transferAll: boolean) => {
-                (window as any).__transferItem = {
-                    url,
-                    transferAll,
-                };
-                return JSON.stringify({ success: true });
-            },
+            TransferItem: (url: object[], transferAll: boolean) => { (window as any).__transferItem = { url, transferAll, }; return JSON.stringify({ success: true }); },
             SetClipboard: () => {},
             GetItemSetAssociations: () => '[]',
             GetBackedUpCharacters: () => '[]',
@@ -148,16 +118,9 @@ test('WebUI can transfer an item through IAGrim', async ({ page }) => {
             DismissNumericFilterBanner: () => {},
         };
     });
-
     await page.goto('/');
-
     // Wait until App.componentDidMount() has run.
-    await expect.poll(async () => {
-        return page.evaluate(() => {
-            return (window as any).__signalReadyCalled === true;
-        });
-    }).toBe(true);
-
+    await expect.poll(async () => { return page.evaluate(() => { return (window as any).__signalReadyCalled === true; }); }).toBe(true);
     await page.evaluate(() => {
         window.message({
             type: 5, // IOMessageType.SetItems
@@ -192,15 +155,8 @@ test('WebUI can transfer an item through IAGrim', async ({ page }) => {
             },
         });
     });
-
     await expect(page.getByText('Transfer Test Item')).toBeVisible();
     await page.locator('.item .link-container a').click();
-
-    await expect.poll(async () => {
-        return page.evaluate(() => (window as any).__transferItem);
-    }).toEqual({
-        url: ['PI', '123', 'test-item', '-', '-', '-'],
-        transferAll: false,
-    });
+    await expect.poll(async () => { return page.evaluate(() => (window as any).__transferItem); }).toEqual({ url: ['PI', '123', 'test-item', '-', '-', '-'], transferAll: false, });
 });
 

@@ -429,6 +429,8 @@ version.txt
 *.AppImage
 .last-run.json
 
+**/TestData/Items.arc
+
 .Xauthority
 .cache
 .dotnet
@@ -439,8 +441,3 @@ version.txt
 .templateengine
 .zshrc
 .config
-
-HookDllMH/Hook/boost
-HookDllMH/Hook/minhook
-HookDllMH/Hook/build
-HookDll/build*
