@@ -5,13 +5,13 @@ rm -rf publish
 
 PUBLISH="publish/IAGrim.AppDir"
 
-./build_webui_tests.sh
-./build_iagrim_tests.sh
-
 ./build_webui.sh
 ./build_hook.sh
 ./build_dllloader.sh
 ./build_iagrim.sh "Release" $PUBLISH
+
+./build_webui_tests.sh
+./build_iagrim_tests.sh
 
 find publish/ -type f -name '*.pdb' -delete
 
@@ -47,15 +47,15 @@ exec "\$(dirname "\$0")/usr/bin/iagrim" "\$@"
 EOF
 chmod +x "$PUBLISH/AppRun"
 
+mkdir -p $PUBLISH/opt/iagrim/Hook
+cp HookDll/Hook/build/Hook.dll $PUBLISH/opt/iagrim/Hook/ItemAssistantHook_x64.dll
+cp DllLoader/build/winmm.dll $PUBLISH/opt/iagrim/Hook/winmm.dll
+
 APPIMAGETOOL="tools/appimagetool"
 mkdir -p "tools"
 if [ ! -x "$APPIMAGETOOL" ]; then
     curl -L "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage" -o "$APPIMAGETOOL"
 fi
 chmod +x $APPIMAGETOOL
-
-mkdir -p $PUBLISH/opt/iagrim/Hook
-cp HookDll/Hook/build/Hook.dll $PUBLISH/opt/iagrim/Hook/ItemAssistantHook_x64.dll
-cp DllLoader/build/winmm.dll $PUBLISH/opt/iagrim/Hook/winmm.dll
 
 $APPIMAGETOOL $PUBLISH IAGrim-x86_64.AppImage

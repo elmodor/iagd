@@ -1,0 +1,148 @@
+name: Publish Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build'
+        required: true
+        default: 'v1.1.2.2-linux.1'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      PUBLISH: "publish/IAGrim.AppDir"
+      DOTNET_VERSION: "10.0.x"
+      NODE_VERSION: "26"
+      APPIMAGE_EXTRACT_AND_RUN: "1"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: WebUI/package-lock.json
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake mingw-w64 python3 curl zip
+
+      - name: Determine Version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME}"
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Build WebUI
+        run: |
+          ./build_webui.sh
+
+      - name: Build Hook
+        run: |
+          ./build_hook.sh
+
+      - name: Build DLL Loader
+        run: |
+          ./build_dllloader.sh
+
+      - name: Build IAGrim
+        run: |
+          ./build_iagrim.sh Release publish/IAGrim.AppDir
+
+      - name: Build and Run WebUI Tests
+        run: |
+          ./build_webui_tests.sh
+
+      - name: Build and Run IAGrim Tests
+        run: |
+          ./build_iagrim_tests.sh
+
+      - name: Prepare AppImage
+        run: |
+          set -eux
+
+          find publish/ -type f -name '*.pdb' -delete
+
+          mkdir -p "$PUBLISH/usr/share/icons/hicolor/256x256/apps"
+          mkdir -p "$PUBLISH/usr/bin"
+
+          cp IAGrim/gd.png "$PUBLISH/usr/share/icons/hicolor/256x256/apps/iagrim.png"
+          cp IAGrim/gd.png "$PUBLISH/iagrim.png"
+
+          cat > "$PUBLISH/usr/bin/iagrim" << 'EOF'
+          #!/bin/sh
+
+          # Disable DMA-BUF, does not work on some gpus/systems
+          export WEBKIT_DISABLE_DMABUF_RENDERER="${WEBKIT_DISABLE_DMABUF_RENDERER:-1}"
+
+          exec "$(dirname "$0")/../../opt/iagrim/IAGrim" "$@"
+          EOF
+          chmod +x "$PUBLISH/usr/bin/iagrim"
+
+          cat > "$PUBLISH/iagrim.desktop" << 'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=Grim Dawn Item Assistant
+          Exec=iagrim
+          Icon=iagrim
+          Categories=Utility;
+          Terminal=false
+          EOF
+
+          cat > "$PUBLISH/AppRun" << 'EOF'
+          #!/bin/sh
+          exec "$(dirname "$0")/usr/bin/iagrim" "$@"
+          EOF
+          chmod +x "$PUBLISH/AppRun"
+
+          mkdir -p "$PUBLISH/opt/iagrim/Hook"
+          cp HookDll/Hook/build/Hook.dll "$PUBLISH/opt/iagrim/Hook/ItemAssistantHook_x64.dll"
+          cp DllLoader/build/winmm.dll "$PUBLISH/opt/iagrim/Hook/winmm.dll"
+
+      - name: Create AppImage
+        run: |
+          set -eux
+
+          APPIMAGETOOL="tools/appimagetool"
+          mkdir -p tools
+          if [ ! -x "$APPIMAGETOOL" ]; then
+            curl -L "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage" -o "$APPIMAGETOOL"
+          fi
+          chmod +x "$APPIMAGETOOL"
+
+          "$APPIMAGETOOL" "$PUBLISH" "IAGrim-x86_64.AppImage"
+
+      - name: Upload Artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v6
+        with:
+          name: IAGrim-AppImage
+          path: "IAGrim-x86_64.AppImage"
+
+      - name: Create draft release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${VERSION}" "IAGrim-x86_64.AppImage" --draft --generate-notes --title "IAGrim ${VERSION}" --verify-tag
