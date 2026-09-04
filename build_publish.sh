@@ -10,6 +10,7 @@ PUBLISH="publish/IAGrim.AppDir"
 
 ./build_webui.sh
 ./build_hook.sh
+./build_dllloader.sh
 ./build_iagrim.sh "Release" $PUBLISH
 
 find publish/ -type f -name '*.pdb' -delete
@@ -55,7 +56,6 @@ chmod +x $APPIMAGETOOL
 
 mkdir -p $PUBLISH/opt/iagrim/Hook
 cp HookDll/Hook/build/Hook.dll $PUBLISH/opt/iagrim/Hook/ItemAssistantHook_x64.dll
-# TODO
-cp winmm.dll $PUBLISH/opt/iagrim/Hook/winmm.dll
+cp DllLoader/build/winmm.dll $PUBLISH/opt/iagrim/Hook/winmm.dll
 
 $APPIMAGETOOL $PUBLISH IAGrim-x86_64.AppImage

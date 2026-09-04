@@ -1,0 +1,3 @@
+[submodule "DllLoader"]
+	path = DllLoader
+	url = https://github.com/elmodor/grimdawn-dllloader
