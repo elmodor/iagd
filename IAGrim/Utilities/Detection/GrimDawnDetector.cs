@@ -119,7 +119,6 @@ namespace IAGrim {
         //     return string.Empty;
         // }
 
-
         // /// <summary>
         // /// Find the path to Grim Dawn by searching for the HWND it creates
         // /// </summary>

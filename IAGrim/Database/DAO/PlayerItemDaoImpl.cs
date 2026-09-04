@@ -33,14 +33,20 @@ namespace IAGrim.Database {
         /// List all player items
         /// </summary>
         /// <returns></returns>
-        public IList<PlayerItem> GetByRecord(string prefixRecord, string baseRecord, string suffixRecord, string materiaRecord, string mod, bool isHardcore) {
+        public IList<PlayerItem> GetByRecord(string prefixRecord, string baseRecord, string suffixRecord, string? materiaRecord, string mod, bool isHardcore) {
             using (var session = SessionCreator.OpenSession()) {
                 // TODO:
                 var crits = session.CreateCriteria<PlayerItem>()
                     .Add(Restrictions.Eq("BaseRecord", baseRecord))
                     .Add(Restrictions.Eq("PrefixRecord", prefixRecord))
-                    .Add(Restrictions.Eq("SuffixRecord", suffixRecord))
-                    .Add(Restrictions.Eq("MateriaRecord", materiaRecord));
+                    .Add(Restrictions.Eq("SuffixRecord", suffixRecord));
+
+                // A null materia means "any component". Transfer all relies on this: the UI merges items
+                // into a single stack on base/prefix/suffix alone, so restricting on the component would
+                // silently leave behind the items in that stack which have one.
+                if (materiaRecord != null) {
+                    crits = crits.Add(Restrictions.Eq("MateriaRecord", materiaRecord));
+                }
 
                 if (string.IsNullOrEmpty(mod)) {
                     crits = crits.Add(Restrictions.Or(Restrictions.Eq("Mod", ""), Restrictions.IsNull("Mod")));
@@ -68,7 +74,7 @@ namespace IAGrim.Database {
         /// <param name="stats"></param>
         /// <param name="records"></param>
         /// <returns></returns>
-        private int GetGreenQualityLevelForRecords(Dictionary<string, List<DBStatRow>> stats, List<string> records) {
+        public static int GetGreenQualityLevelForRecords(Dictionary<string, List<DBStatRow>> stats, List<string> records) {
             // Filter out green components
             var filteredRecords = records
                 .Where(record => !record.StartsWith("records/items/materia/"))
@@ -309,7 +315,7 @@ namespace IAGrim.Database {
         /// Load the entire ItemTag table into a Tag -> Name lookup.
         /// Done once per rebuild so GetItemName doesn't issue a SELECT per item.
         /// </summary>
-        private static Dictionary<string, string> LoadItemTags(ISession session) {
+        public static Dictionary<string, string> LoadItemTags(ISession session) {
             // Scalar SQL (not CreateCriteria) on purpose: CreateCriteria would pull all ~19k
             // ItemTag rows into the session's first-level cache as managed entities. Those would
             // then be dirty-checked on every auto-flush before each write in the loops below,
@@ -579,13 +585,18 @@ namespace IAGrim.Database {
         }
 
         /// <summary>
-        /// Simply delete the 'mark for deletion' tags
+        /// Delete the 'mark for deletion' tags for the given items only.
+        /// Clearing more than what the cloud confirmed will let those items back in on the next download.
         /// </summary>
-        /// <returns></returns>
-        public void ClearItemsMarkedForOnlineDeletion() {
+        public void ClearItemsMarkedForOnlineDeletion(IList<DeleteItemDto> items) {
+            var ids = items.Select(m => m.Id).Where(id => !string.IsNullOrEmpty(id)).ToList();
+            if (ids.Count == 0) return;
+
             using (var session = SessionCreator.OpenSession()) {
                 using (var transaction = session.BeginTransaction()) {
-                    session.CreateQuery($"DELETE FROM {nameof(DeletedPlayerItem)}").ExecuteUpdate();
+                    session.CreateQuery($"DELETE FROM {nameof(DeletedPlayerItem)} WHERE {nameof(DeletedPlayerItem.Id)} IN ( :ids )")
+                        .SetParameterList("ids", ids)
+                        .ExecuteUpdate();
                     transaction.Commit();
                 }
             }
@@ -882,7 +893,7 @@ namespace IAGrim.Database {
             // Only items which grants new skills
             if (query.WithGrantSkillsOnly) {
                 // TODO: Are there any prefixes or suffixes which grants skills?
-                queryFragments.Add($"PI.baserecord IN (SELECT PlayerItemRecord from ({ItemSkillDaoImpl.ListItemsQuery}) y)");
+                queryFragments.Add($"PI.baserecord IN ({ItemSkillDaoImpl.SkillGrantingRecordsQuery})");
             }
 
             if (query.WithSummonerSkillOnly) {

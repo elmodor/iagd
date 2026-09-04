@@ -5,7 +5,11 @@ using IAGrim.Database.Dto;
 
 namespace IAGrim.Database.Interfaces {
     public interface IPlayerItemDao : IBaseDao<PlayerItem> {
-        IList<PlayerItem> GetByRecord(string prefixRecord, string baseRecord, string suffixRecord, string materiaRecord, string mod, bool isHardcore);
+        /// <summary>
+        ///     Fetch every player item matching the given records.
+        ///     <paramref name="materiaRecord" /> may be null, in which case the component (materia) is ignored in the match.
+        /// </summary>
+        IList<PlayerItem> GetByRecord(string prefixRecord, string baseRecord, string suffixRecord, string? materiaRecord, string mod, bool isHardcore);
 
         IList<PlayerItem> GetUnsynchronizedItems();
         void SetAsSynchronized(IList<PlayerItem> items);
@@ -22,7 +26,7 @@ namespace IAGrim.Database.Interfaces {
 
         IList<DeletedPlayerItem> GetItemsMarkedForOnlineDeletion();
         IList<string> GetOnlineIds();
-        void ClearItemsMarkedForOnlineDeletion();
+        void ClearItemsMarkedForOnlineDeletion(IList<DeleteItemDto> items);
         void ResetOnlineSyncState();
 
         void Update(IList<PlayerItem> items, bool clearOnlineId);

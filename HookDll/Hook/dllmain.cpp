@@ -15,6 +15,7 @@
 #include "Logger.h"
 #include "SetHardcore.h"
 #include "SettingsReader.h"
+#include "CrashReporter.h"
 #include "MinHook.h"
 
 /// The log is constructed on first use rather than as a namespace-scope global.
@@ -66,6 +67,9 @@ HANDLE g_singleInstanceMutex = NULL;
 #pragma region CORE
 
 
+/// Every log line carries its thread id. The hook runs on the game's update thread, on whatever thread drives
+/// Engine::Render, and on the DLL's own polling threads; the races worth catching -- calling into Engine.dll
+/// from a polling thread while the world tears down on another -- are only visible as an interleaving.
 std::wstring logStartupTime() {
 	__time64_t rawtime;
 	struct tm timeinfo;
@@ -74,10 +78,9 @@ std::wstring logStartupTime() {
 	_time64(&rawtime);
 	localtime_s(&timeinfo, &rawtime);
 
-	wcsftime(buffer, sizeof(buffer), L"%Y-%m-%d %H:%M:%S ", &timeinfo);
-	std::wstring str(buffer);
+	wcsftime(buffer, _countof(buffer), L"%Y-%m-%d %H:%M:%S ", &timeinfo);
 
-	return str;
+	return std::wstring(buffer) + L"[t" + std::to_wstring(GetCurrentThreadId()) + L"] ";
 }
 
 std::string logStartupTimeChar() {
@@ -89,9 +92,8 @@ std::string logStartupTimeChar() {
 	localtime_s(&timeinfo, &rawtime);
 
 	strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S ", &timeinfo);
-	std::string str(buffer);
 
-	return str;
+	return std::string(buffer) + "[t" + std::to_string(GetCurrentThreadId()) + "] ";
 }
 
 std::wstring LogLevelToString(LogLevel level) {
@@ -466,6 +468,7 @@ static bool ClaimSingleInstance() {
 /// A game that is not ready yet is the normal case rather than an error: the injector retries.
 static bool GameStateExportsResolved() {
 	if (IsGameLoading == nullptr || IsGameWaiting == nullptr || IsGameEngineOnline == nullptr) {
+		LogToFile(LogLevel::WARNING, L"The game.dll state exports are not all available, the game is not ready to be hooked.");
 		return false;
 	}
 	return true;
@@ -486,12 +489,12 @@ int ProcessAttach(HINSTANCE _hModule) {
 		return FALSE;
 	}
 
-   MH_STATUS status = MH_Initialize();
-   if (status != MH_OK)
-   {
-       LogToFile(LogLevel::FATAL, L"MinHook Initialization failed!");
-       return FALSE;
-   }
+    MH_STATUS status = MH_Initialize();
+    if (status != MH_OK)
+    {
+        LogToFile(LogLevel::FATAL, L"MinHook Initialization failed!");
+        return FALSE;
+    }
 
 	// Check if running in Wine/Proton
 	try {
@@ -536,7 +539,7 @@ int ProcessAttach(HINSTANCE _hModule) {
 		}
 	}
 
-   bool logged = false;
+    bool logged = false;
 	while (!GameStateExportsResolved()) {
       if(!logged) {
          LogToFile(LogLevel::WARNING, L"The game.dll state exports are not all available, the game is not ready to be hooked yet.");
@@ -546,84 +549,62 @@ int ProcessAttach(HINSTANCE _hModule) {
 	}
 
 	GAME::GameEngine* gameEngine = nullptr;
-   logged = false;
-   while(gameEngine == nullptr)
-   {
-      if(!logged) {
-         LogToFile(LogLevel::INFO, L"Engine nullpointer..");
-         logged = true;
-      }
-      gameEngine = fnGetGameEngine();
-      Sleep(1000);
-   }
-   LogToFile(LogLevel::INFO, L"Got Engine pointer..");
-   logged = false;
-	// if (gameEngine == nullptr) {
-	// 	ReportCancelledInjection();
-	// 	LogToFile(LogLevel::INFO, L"Could not find game engine ptr, aborting DLL injection..");
-	// 	return FALSE;
-	// }
+    logged = false;
+    while(gameEngine == nullptr)
+    {
+       if(!logged) {
+          LogToFile(LogLevel::INFO, L"Engine nullpointer..");
+          logged = true;
+       }
+       gameEngine = fnGetGameEngine();
+       Sleep(1000);
+    }
+    LogToFile(LogLevel::INFO, L"Got Engine pointer..");
+    logged = false;
 	while (IsGameLoading(gameEngine)) {
       if(!logged) {
          LogToFile(LogLevel::INFO, L"Game is loading..");
          logged = true;
       }
-		// ReportCancelledInjection();
-		// LogToFile(LogLevel::INFO, L"Game is still loading, aborting DLL injection..");
-		// return FALSE;
       Sleep(1000);
 	}
-	// else {
-		LogToFile(LogLevel::INFO, L"Game is not loading..");
-   logged = false;
-	// }
+	LogToFile(LogLevel::INFO, L"Game is not loading..");
+    logged = false;
 
 	while (IsGameWaiting(gameEngine, true)) { // TODO: When on a PC with IDA installed, figure out what the boolean is.
       if(!logged) {
          LogToFile(LogLevel::INFO, L"Game is waiting.. [true]");
          logged = true;
       }
-		// ReportCancelledInjection();
-		// LogToFile(LogLevel::INFO, L"Game is waiting, aborting DLL injection.. [true]");
-		// return FALSE;
       Sleep(1000);
 	}
-	// else {
-		LogToFile(LogLevel::INFO, L"Game is not waiting.. [true]");
-   logged = false;
-	// }
+	LogToFile(LogLevel::INFO, L"Game is not waiting.. [true]");
+    logged = false;
 
 	while (IsGameWaiting(gameEngine, false)) { // TODO: When on a PC with IDA installed, figure out what the boolean is.
       if(!logged) {
          LogToFile(LogLevel::INFO, L"Game is waiting.. [false]");
          logged = true;
       }
-		// ReportCancelledInjection();
-		// LogToFile(LogLevel::INFO, L"Game is waiting, aborting DLL injection.. [false]");
-		// return FALSE;
       Sleep(1000);
 	}
-	// else {
-		LogToFile(LogLevel::INFO, L"Game is not waiting.. [false]");
-   logged = false;
-	// }
+	LogToFile(LogLevel::INFO, L"Game is not waiting.. [false]");
+    logged = false;
 
 	while (!IsGameEngineOnline(gameEngine)) {
       if(!logged) {
          LogToFile(LogLevel::INFO, L"Game engine is offline..");
          logged = true;
       }
-		// ReportCancelledInjection();
-		// LogToFile(LogLevel::INFO, L"Game engine is not yet online, aborting DLL injection..");
-		// return FALSE;
       Sleep(1000);
 	}
-	// else {
-		LogToFile(LogLevel::INFO, L"Game engine is online..");
-	// }
+	LogToFile(LogLevel::INFO, L"Game engine is online..");
 
 	LogToFile(LogLevel::INFO, L"Game is most likely running, proceeding with injection.");
 
+	// Installed only once we have committed to hooking. An aborted attach unloads the DLL again, and a
+	// vectored handler left pointing into an unmapped module is a guaranteed crash rather than a report of one.
+	CrashReporter::Install();
 
 	g_hEvent = CreateEventW(NULL, FALSE, FALSE, L"IA_Worker");
 
@@ -667,15 +648,23 @@ int ProcessDetach(HINSTANCE _hModule) {
 	LOG(L"Detatching DLL..");
 	OutputDebugStringW(L"ProcessDetach");
 
-   MH_DisableHook(MH_ALL_HOOKS);
-   MH_RemoveHook(MH_ALL_HOOKS);
-	hooks.clear();
+	// Before anything else is torn down: the handler lives in this module, so it has to stop being reachable
+	// while this module is still mapped.
+	CrashReporter::Uninstall();
 
+	// Stop the seed-info thread up front so it cannot call into the game while the other hooks are detached.
 	if (listener != nullptr) {
 		listener->Stop();
-		delete listener;
-		listener = nullptr;
 	}
+
+    MH_DisableHook(MH_ALL_HOOKS);
+    MH_RemoveHook(MH_ALL_HOOKS);
+	hooks.clear();
+
+	// Both are entries in `hooks` rather than separate allocations, so the loop above already freed them.
+	// Clearing the globals keeps the worker thread from using either while it winds down.
+	listener = nullptr;
+	g_InventorySack_AddItemInstance = nullptr;
 
 	EndWorkerThread();
 
@@ -686,7 +675,13 @@ int ProcessDetach(HINSTANCE _hModule) {
 		DeleteFileW(pidFile.c_str());
 	}
 
-   MH_Uninitialize();
+    MH_Uninitialize();
+
+	if (g_singleInstanceMutex != NULL) {
+		ReleaseMutex(g_singleInstanceMutex);
+		CloseHandle(g_singleInstanceMutex);
+		g_singleInstanceMutex = NULL;
+	}
 
 	if (g_singleInstanceMutex != NULL) {
 		ReleaseMutex(g_singleInstanceMutex);

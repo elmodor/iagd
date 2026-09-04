@@ -25,6 +25,23 @@ internal static class WebKitGtkInterop
         return IntPtr.Zero;
     }
 
+    [DllImport(WebKit)]
+    private static extern uint webkit_get_major_version();
+    [DllImport(WebKit)]
+    private static extern uint webkit_get_minor_version();
+    [DllImport(WebKit)]
+    private static extern uint webkit_get_micro_version();
+    public static string Version {
+        get {
+            try {
+                return $"{webkit_get_major_version()}.{webkit_get_minor_version()}.{webkit_get_micro_version()}";
+            }
+            catch (Exception ex) {
+                return $"unavailable ({ex.Message})";
+            }
+        }
+    }
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     internal delegate void UriSchemeRequestCallback(IntPtr request, IntPtr userData);
 
