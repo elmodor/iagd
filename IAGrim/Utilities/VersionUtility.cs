@@ -36,6 +36,11 @@ namespace IAGrim.Utilities {
                 text = text.Substring(1);
             }
 
+            var linux = text.IndexOf("-linux.", StringComparison.OrdinalIgnoreCase);
+            if (linux >= 0) {
+                text = text.Substring(0, linux);
+            }
+
             return Version.TryParse(text, out var version) ? version : null;
         }
 
@@ -52,7 +57,12 @@ namespace IAGrim.Utilities {
                 return null;
             }
 
-            return versionA.CompareTo(versionB);
+            var result = versionA.CompareTo(versionB);
+            if (result != 0) {
+                return result;
+            }
+
+            return GetLinuxRevision(a).CompareTo(GetLinuxRevision(b));
         }
 
         /// <summary>
@@ -69,6 +79,28 @@ namespace IAGrim.Utilities {
         /// </summary>
         public static bool IsOlderThan(string? version, string? other) {
             return Compare(version, other) < 0;
+        }
+
+        private static int GetLinuxRevision(string? raw) {
+            if (string.IsNullOrWhiteSpace(raw)) {
+                return 0;
+            }
+
+            var text = raw.Trim();
+
+            // AssemblyInformationalVersion may carry "+<commit sha>", and older tags were prefixed with "v".
+            var plus = text.IndexOf('+');
+            if (plus >= 0) {
+                text = text.Substring(0, plus);
+            }
+
+            // Obtain the linux revision after -linux.
+            var linux = text.IndexOf("-linux.", StringComparison.OrdinalIgnoreCase);
+            if (linux < 0) {
+                return 0;
+            }
+
+            return int.TryParse(text.Substring(linux + "-linux.".Length), out var revision) ? revision : 0;
         }
     }
 }

@@ -11,6 +11,7 @@ using System;
 using System.IO;
 using System.Net;
 using System.Reflection;
+using System.Linq;
 using System.Runtime.InteropServices.JavaScript;
 using System.Text;
 
@@ -42,7 +43,7 @@ namespace EvilsoftCommons.Exceptions {
         public static void ReportUsage() {
 #if !DEBUG
             try {
-                var versionString = VersionString + " (Linux)";
+                var versionString = VersionString;
                 string postData = string.Format("version={0}&uuid={1}", Uri.EscapeDataString(versionString), Uuid);
                 HttpWebRequest httpWReq = (HttpWebRequest) WebRequest.Create(UrlStats);
                 Encoding encoding = new UTF8Encoding();
@@ -78,41 +79,33 @@ namespace EvilsoftCommons.Exceptions {
         public static string VersionString {
             get {
                 try {
-                    var version = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version;
-                    return $"{version?.Major}.{version?.Minor}.{version?.Build}.{version?.Revision:00000}";
+                    return Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "1.1.2.2";
                 }
                 catch (Exception ex) {
                     Logger.Warn("Error getting assembly version, automatic updates may not function correctly.");
                     Logger.Warn(ex.Message);
                     Logger.Warn(ex.StackTrace);
-
-                    var version = Assembly.GetExecutingAssembly().GetName().Version;
-                    return $"{version?.Major}.{version?.Minor}.{version?.Build}.{version?.Revision:00000}";
+                    return Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "1.1.2.2";
                 }
             }
         }
-
-        private static DateTime VersionToDateTime(Version version) {
-            return new DateTime(2000, 1, 1)
-                .AddDays(version.Build)
-                .AddSeconds(version.Revision * 2);
-            }
 
         public static DateTime BuildDate {
             get {
                 try {
-                    return VersionToDateTime(System.Reflection.Assembly.GetEntryAssembly()!.GetName().Version!);
+                    var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
+                    var metadata = assembly .GetCustomAttributes<AssemblyMetadataAttribute>() .FirstOrDefault(x => x.Key == "BuildDateTimeUtc");
+                    if (metadata?.Value == null)
+                        throw new InvalidOperationException("BuildDateTimeUtc assembly metadata is missing.");
+                    return new DateTime(2000, 1, 1).AddDays(int.Parse(metadata.Value));
                 }
                 catch (Exception ex) {
-                    Logger.Warn("Error getting assembly version, automatic updates may not function correctly.");
+                    Logger.Warn("Error getting assembly build date.");
                     Logger.Warn(ex.Message);
                     Logger.Warn(ex.StackTrace);
-
-                    return VersionToDateTime(Assembly.GetExecutingAssembly().GetName().Version!);
+                    return DateTime.MinValue;
                 }
             }
         }
-
-
     }
 }

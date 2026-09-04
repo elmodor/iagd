@@ -91,8 +91,7 @@ class Program
         }
 
         Logger.Info("Starting IA:GD Linux..");
-        // TODO
-        // ExceptionReporter.UrlStats = "https://webstats.evilsoft.net/report/iagd";
+        ExceptionReporter.UrlStats = "https://webstats.evilsoft.net/report/iagd";
         SQLitePCL.Batteries.Init();
 
         // To customize application configuration such as set high DPI settings or default font,

@@ -434,7 +434,7 @@ public partial class MainWindow : Window
         // Set version number
         DateTime buildDate = ExceptionReporter.BuildDate;
         statusLabel.Text = statusLabel.Text + $" - {ExceptionReporter.VersionString} from {buildDate.ToString("dd/MM/yyyy")}";
-        tsVersionNumber.Text = $"{ExceptionReporter.VersionString} (Linux)";
+        tsVersionNumber.Text = $"{ExceptionReporter.VersionString}";
 
         var settingsService = _serviceProvider.Get<SettingsService>();
         ExceptionReporter.EnableLogUnhandledOnThread();
