@@ -426,7 +426,7 @@ IAGrim.AppDir
 HookDll/Hook/boost
 HookDll/Hook/build
 version.txt
-*.AppImage
+IAGrim*.AppImage*
 .last-run.json
 
 **/TestData/Items.arc

@@ -59,3 +59,4 @@ fi
 chmod +x $APPIMAGETOOL
 
 $APPIMAGETOOL $PUBLISH IAGrim-x86_64.AppImage
+sha256sum "IAGrim-x86_64.AppImage" > "IAGrim-x86_64.AppImage.sha256"

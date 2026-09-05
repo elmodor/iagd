@@ -1,0 +1,15 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="IAGrim.UI.Popups.DownloadingUpdateModal"
+        Title="Downloading.."
+        Width="331"
+        Height="45"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Tag="iatag_ui_downloading">
+
+    <Grid>
+        <ProgressBar x:Name="progressBar1" Minimum="0" Maximum="100" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="12" />
+    </Grid>
+</Window>

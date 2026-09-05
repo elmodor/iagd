@@ -54,7 +54,7 @@ jobs:
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake mingw-w64 python3 curl zip
+          sudo apt-get install -y cmake mingw-w64 python3 curl zsync
 
       - name: Determine Version
         run: |
@@ -143,18 +143,22 @@ jobs:
           fi
           chmod +x "$APPIMAGETOOL"
 
-          "$APPIMAGETOOL" "$PUBLISH" "IAGrim-x86_64.AppImage"
+          "$APPIMAGETOOL" "$PUBLISH" "IAGrim-x86_64.AppImage" -u "gh-releases-zsync|elmodor|iagd|latest|IAGrim-x86_64.AppImage.zsync"
+          sha256sum "IAGrim-x86_64.AppImage" > "IAGrim-x86_64.AppImage.sha256"
 
       - name: Upload Artifact
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v6
         with:
           name: IAGrim-AppImage
-          path: "IAGrim-x86_64.AppImage"
+          path: |
+            IAGrim-x86_64.AppImage
+            IAGrim-x86_64.AppImage.zsync
+            IAGrim-x86_64.AppImage.sha256
 
       - name: Create draft release
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "v${VERSION}" "IAGrim-x86_64.AppImage" --draft --generate-notes --title "IAGrim v${VERSION}" --verify-tag
+          gh release create "v${VERSION}" "IAGrim-x86_64.AppImage" "IAGrim-x86_64.AppImage.zsync" "IAGrim-x86_64.AppImage.sha256" --draft --generate-notes --title "IAGrim v${VERSION}" --verify-tag

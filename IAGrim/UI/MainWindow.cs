@@ -116,7 +116,7 @@ public partial class MainWindow : Window
         // TODO
         // _minimizeToTrayHandler = new MinimizeToTrayHandler(this, notifyIcon1, serviceProvider.Get<SettingsService>());
 
-        _automaticUpdateChecker = new AutomaticUpdateChecker(settingsService);
+        _automaticUpdateChecker = new AutomaticUpdateChecker(settingsService, this);
         _settingsController = new SettingsController(settingsService);
         _parsingService = parsingService;
         _userFeedbackService = new UserFeedbackService(_cefBrowserHandler);

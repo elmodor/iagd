@@ -1,0 +1,29 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="IAGrim.UI.Popups.UpdateModal"
+        Title="Update available"
+        Width="460"
+        Height="260"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+
+    <Grid Margin="32">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock x:Name="label1" Grid.Row="0" Text="A new version is available!" FontSize="24" FontWeight="SemiBold" HorizontalAlignment="Center" Tag="iatag_ui_newversion_available"/>
+        <Button x:Name="btnUpdateNow" Grid.Row="2" Content="Update now" Width="260" Height="48" HorizontalAlignment="Center" Tag="iatag_ui_updatenow" Click="btnUpdateNow_Click"/>
+        <Grid Grid.Row="3" Margin="-20,12,0,0" HorizontalAlignment="Center">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="200"/>
+                <ColumnDefinition Width="160"/>
+            </Grid.ColumnDefinitions>
+            <Button x:Name="lnkWhatHasChanged" Grid.Column="0" Content="See what has changed" HorizontalAlignment="Center" Background="Transparent" BorderThickness="0" Tag="iatag_ui_seewhatchanged" Click="lnkWhatHasChanged_LinkClicked"/>
+            <Button x:Name="lnkRemindMeLater" Grid.Column="1" Content="Remind me later" HorizontalAlignment="Center" Background="Transparent" BorderThickness="0" Tag="iatag_ui_remindmelater" Click="lnkRemindMeLater_LinkClicked"/>
+        </Grid>
+    </Grid>
+</Window>

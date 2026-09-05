@@ -158,18 +158,9 @@ namespace IAGrim.Utilities {
             }
         }
 
-        // TODO
         public static string? DownloadsFolder {
             get {
-                return LinuxConfig.DataDirectory;
-                // Guid DownloadsFolderGuid = new Guid("{374DE290-123F-4565-9164-39C4925E467B}");
-                // try {
-                //     return SHGetKnownFolderPath(DownloadsFolderGuid, 0, IntPtr.Zero);
-                // }
-                // catch (Exception ex) {
-                //     Logger.Warn(ex);
-                //     return null;
-                // }
+                return Path.GetTempPath();
             }
         }
 
