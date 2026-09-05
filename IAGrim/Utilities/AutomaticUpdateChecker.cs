@@ -116,7 +116,7 @@ namespace IAGrim.Utilities {
                 if (VersionUtility.IsNewerThan(version, ExceptionReporter.VersionString) || forceUpdate) {
                     Logger.Info($"Latest version is {version}, local version is {ExceptionReporter.VersionString}, update available");
                     // TODO
-                    _ = MessageBox.Show("New version available! Please download it.", "New updates", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    _ = MessageBox.Show("New version available! Please download it at https://github.com/elmodor/iagd", "New updates", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     // if (new UpdateModal(_settings, version, forceUpdate).ShowDialog() == DialogResult.OK) {
                     //     Download(version);
                     //     _progressModal = new DownloadingUpdateModal();

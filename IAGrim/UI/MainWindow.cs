@@ -77,6 +77,7 @@ public partial class MainWindow : Window
     private readonly ParsingService _parsingService;
     private readonly UserFeedbackService _userFeedbackService;
     private readonly SearchController _searchController;
+    private readonly UsageStatisticsReporter _usageStatisticsReporter = new UsageStatisticsReporter();
     private readonly AutomaticUpdateChecker _automaticUpdateChecker;
     private readonly List<IMessageProcessor> _messageProcessors = new List<IMessageProcessor>();
     private readonly NativeWebView _webView;
@@ -227,9 +228,8 @@ public partial class MainWindow : Window
         // _minimizeToTrayHandler?.Dispose();
         // _minimizeToTrayHandler = null;
 
-        // TODO
         _backupBackgroundTask?.Dispose();
-        // _usageStatisticsReporter.Dispose();
+        _usageStatisticsReporter.Dispose();
         _automaticUpdateChecker.Dispose();
 
         _buddyItemsService?.Dispose();
