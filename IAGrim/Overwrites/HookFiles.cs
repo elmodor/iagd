@@ -58,8 +58,9 @@ namespace IAGrim.Overwrites {
                 return;
             var iagdDll = Path.Combine(location, "ItemAssistantHook_x64.dll");
             var winmmDll = Path.Combine(location, "winmm.dll");
-            if (!File.Exists(iagdDll) && File.Exists(winmmDll)) {
-                File.Move(winmmDll, Path.Combine(location, "winmm.dll.orig"));
+            var winmmDllOrig = Path.Combine(location, "winmm.dll.orig");
+            if (!File.Exists(iagdDll) && File.Exists(winmmDll) && !File.Exists(winmmDllOrig)) {
+                File.Move(winmmDll, winmmDllOrig);
                 Logger.Info($"Backed up {winmmDll}");
             }
         }
@@ -67,9 +68,10 @@ namespace IAGrim.Overwrites {
         private static void RestoreExisting(string location) {
             if (!Path.Exists(location))
                 return;
-            var winmmDll = Path.Combine(location, "winmm.dll.orig");
-            if (File.Exists(winmmDll)) {
-                File.Move(winmmDll, Path.Combine(location, "winmm.dll"));
+            var winmmDll = Path.Combine(location, "winmm.dll");
+            var winmmDllOrig = Path.Combine(location, "winmm.dll.orig");
+            if (File.Exists(winmmDllOrig) && !File.Exists(winmmDll)) {
+                File.Move(winmmDllOrig, winmmDll);
                 Logger.Info($"Restored {winmmDll}");
             }
         }
