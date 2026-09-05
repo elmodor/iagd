@@ -157,4 +157,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${VERSION}" "IAGrim-x86_64.AppImage" --draft --generate-notes --title "IAGrim ${VERSION}" --verify-tag
+          gh release create "v${VERSION}" "IAGrim-x86_64.AppImage" --draft --generate-notes --title "IAGrim v${VERSION}" --verify-tag
