@@ -5,7 +5,7 @@ import './CharacterListContainer.css';
 import {PureComponent} from "preact/compat";
 
 
-class CharacterListContainer extends PureComponent<object, object> {
+class CharacterListContainer extends PureComponent<object, State> {
   state: State = {
     characters: []
   };
@@ -45,7 +45,7 @@ class CharacterListContainer extends PureComponent<object, object> {
   }
 
   render() {
-    const characters = this.sate;
+    const characters = this.state.characters;
     return <div className="characters">
       <h1>Backed up characters</h1>
       <ul>
