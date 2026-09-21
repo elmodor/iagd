@@ -122,13 +122,6 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
-    <!-- TODO -->
-    <!-- <None Include="..\HookDll\Hook\build\Hook.dll" -->
-    <!--   Link="Hook\ItemAssistantHook_x64.dll" -->
-    <!--   CopyToOutputDirectory="PreserveNewest" /> -->
-    <!-- <None Include="..\HookLoader\build\winmm.dll" -->
-    <!--   Link="Hook\winmm.dll" -->
-    <!--   CopyToOutputDirectory="PreserveNewest" /> -->
     <None Update="hibernate.sqlite.cfg.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
