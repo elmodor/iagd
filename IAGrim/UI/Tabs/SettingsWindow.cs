@@ -135,7 +135,7 @@ namespace IAGrim.UI.Tabs {
         }
 
         private async void buttonImportExport_Click(object sender, RoutedEventArgs e) {
-            var dialog = new Popups.ImportExport.ImportExportContainer(_modFilter, _playerItemDao);
+            var dialog = new Popups.ImportExport.ImportExportContainer(_modFilter, _playerItemDao, _itemViewUpdateTrigger);
             var owner = TopLevel.GetTopLevel(this) as Window;
             if (owner != null) {
                 await dialog.ShowDialog(owner);

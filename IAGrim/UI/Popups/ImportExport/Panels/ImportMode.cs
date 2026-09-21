@@ -25,13 +25,17 @@ namespace IAGrim.UI.Popups.ImportExport.Panels {
         private static readonly ILog Logger = LogManager.GetLogger(typeof(ImportMode));
         private readonly GDTransferFile[] _modSelection;
         private readonly IPlayerItemDao _playerItemDao;
+        private readonly Action _itemViewUpdateTrigger;
+        private readonly Action _onClose;
         private string? _filename;
         private volatile bool isLocked = false;
 
-        public ImportMode(GDTransferFile[] modSelection, IPlayerItemDao playerItemDao) {
+        public ImportMode(GDTransferFile[] modSelection, IPlayerItemDao playerItemDao, Action itemViewUpdateTrigger, Action onClose) {
             InitializeComponent();
             this._modSelection = modSelection;
             this._playerItemDao = playerItemDao;
+            this._itemViewUpdateTrigger = itemViewUpdateTrigger;
+            this._onClose = onClose;
         }
 
         private void ImportMode_Loaded(object sender, RoutedEventArgs e) {
@@ -175,19 +179,14 @@ namespace IAGrim.UI.Popups.ImportExport.Panels {
                     isLocked = false;
 
                     Dispatcher.UIThread.Post(async () => {
-                        var result = await MessageBox.Show(
+                        await MessageBox.Show(
                             RuntimeSettings.Language!.GetTag("iatag_ui_importexport_import_success_body"),
                             RuntimeSettings.Language.GetTag("iatag_ui_importexport_import_success"),
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Information);
 
-                        if (result == MessageBoxResult.OK) {
-                            var processPath = Environment.ProcessPath;
-                            if (!string.IsNullOrEmpty(processPath)) {
-                                Process.Start(new ProcessStartInfo{FileName = processPath, UseShellExecute = true});
-                            }
-                            Environment.Exit(0);
-                        }
+                        _itemViewUpdateTrigger?.Invoke();
+                        _onClose();
                     });
                 });
 
