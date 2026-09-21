@@ -34,6 +34,7 @@ namespace IAGrim.UI.Tabs {
         private readonly IBuddyItemDao _buddyItemDao;
         private readonly IBuddySubscriptionDao _buddySubscriptionDao;
         private readonly ObservableCollection<BuddyListItem> _buddyItems = new();
+        public event EventHandler? OnUpdateBuddyList;
 
         public OnlineSettings(IPlayerItemDao playerItemDao, SettingsService settings, IHelpService helpService, IBuddyItemDao buddyItemDao, IBuddySubscriptionDao buddySubscriptionDao) {
             InitializeComponent();
@@ -241,6 +242,7 @@ namespace IAGrim.UI.Tabs {
                         Visible = subscription.IsHidden ? hidden : visible
                 });
             }
+            OnUpdateBuddyList?.Invoke(this, EventArgs.Empty);
         }
 
         private void helpWhatIsThis_LinkClicked(object? sender, RoutedEventArgs e) {

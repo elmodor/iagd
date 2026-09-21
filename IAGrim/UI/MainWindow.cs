@@ -480,6 +480,7 @@ public partial class MainWindow : Window
 
         _authService = new AuthService(new AuthenticationProvider(settingsService), playerItemDao);
         var onlineSettings = new OnlineSettings(playerItemDao, settingsService, _cefBrowserHandler, buddyItemDao, buddySubscriptionDao);
+        onlineSettings.OnUpdateBuddyList += (_, _) => _searchWindow?.UpdateListViewDelayed();
         onlineHost.Content = onlineSettings;
         _authService.OnAuthCompletion += (sender, args_) => {
             if (((args_ as AuthResultEvent)!).IsAuthorized) {
