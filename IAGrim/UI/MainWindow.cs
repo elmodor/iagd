@@ -777,59 +777,51 @@ public partial class MainWindow : Window
     // private void WineMessagePollTick(object? sender, EventArgs e) {
     private void WineMessageHandler(string file) {
         try {
-            // var linuxHackPath = GlobalPaths.LinuxHack;
-            // if (!Directory.Exists(linuxHackPath)) return;
-            //
-            // foreach (var file in Directory.GetFiles(linuxHackPath, "*.msg")) {
-                try {
-                    var fileAge = DateTime.Now - File.GetLastWriteTime(file);
+            try {
+                var fileAge = DateTime.Now - File.GetLastWriteTime(file);
 
-                    // Stale message, just delete
-                    if (fileAge.TotalSeconds > 30) {
-                        File.Delete(file);
-                        return;
-                    }
-
-                    var bytes = File.ReadAllBytes(file);
+                // Stale message, just delete
+                if (fileAge.TotalSeconds > 30) {
                     File.Delete(file);
-
-                    if (bytes.Length < 8) {
-                        Logger.Warn($"Wine message file too small: {file} ({bytes.Length} bytes)");
-                        return;
-                    }
-
-                    int type = BitConverter.ToInt32(bytes, 0);
-                    int dataLength = BitConverter.ToInt32(bytes, 4);
-
-                    byte[] data;
-                    string stringData = string.Empty;
-
-                    if (dataLength > 0 && bytes.Length >= 8 + dataLength) {
-                        data = new byte[dataLength];
-                        Array.Copy(bytes, 8, data, 0, dataLength);
-                        // Try to read as unicode string
-                        try {
-                            stringData = System.Text.Encoding.Unicode.GetString(data).TrimEnd('\0');
-                        }
-                        catch {
-                            // Not a valid string, that's fine
-                        }
-                    }
-                    else {
-                        data = Array.Empty<byte>();
-                    }
-
-                    var msg = new RegisterWindow.DataAndType(type, data, stringData);
-                    CustomWndProc(msg);
+                    return;
                 }
-                catch (IOException ex) {
-                    // File may be locked, skip and retry next poll
-                    Logger.Warn($"Error processing wine message file: {ex.Message}");
+
+                var bytes = File.ReadAllBytes(file);
+                File.Delete(file);
+
+                if (bytes.Length < 8) {
+                    Logger.Warn($"Wine message file too small: {file} ({bytes.Length} bytes)");
+                    return;
                 }
-                // catch (Exception ex) {
-                //     Logger.Warn($"Error processing wine message file: {ex.Message}");
-                // }
-            // }
+
+                int type = BitConverter.ToInt32(bytes, 0);
+                int dataLength = BitConverter.ToInt32(bytes, 4);
+
+                byte[] data;
+                string stringData = string.Empty;
+
+                if (dataLength > 0 && bytes.Length >= 8 + dataLength) {
+                    data = new byte[dataLength];
+                    Array.Copy(bytes, 8, data, 0, dataLength);
+                    // Try to read as unicode string
+                    try {
+                        stringData = System.Text.Encoding.Unicode.GetString(data).TrimEnd('\0');
+                    }
+                    catch {
+                        // Not a valid string, that's fine
+                    }
+                }
+                else {
+                    data = Array.Empty<byte>();
+                }
+
+                var msg = new RegisterWindow.DataAndType(type, data, stringData);
+                CustomWndProc(msg);
+            }
+            catch (IOException ex) {
+                // File may be locked, skip and retry next poll
+                Logger.Warn($"Error processing wine message file: {ex.Message}");
+            }
         }
         catch (Exception ex) {
             Logger.Warn($"Error handling wine message files: {ex.Message}");

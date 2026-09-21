@@ -153,7 +153,6 @@ void LogToFile(LogLevel level, std::wstringstream message) {
 // Format: [int32 type][int32 dataLength][raw data bytes]
 // Write as .tmp then rename to .msg for atomic visibility
 void WriteMessageToFile(DWORD dwData, void* lpData, DWORD cbData) {
-   return; // TODO. do we need this?
 	GUID guid;
 	if (CoCreateGuid(&guid) != S_OK) {
 		LogToFile(LogLevel::FATAL, L"Failed to create GUID for message file");
