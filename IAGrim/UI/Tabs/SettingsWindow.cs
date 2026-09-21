@@ -60,7 +60,7 @@ namespace IAGrim.UI.Tabs {
             // _controller.BindCheckbox(cbMinimizeToTray);
 
             // _controller.BindCheckbox(cbHideSkills);
-            // _controller.LoadDefaults();
+            _controller.LoadDefaults();
 
             // TODO: Write out the settingscontroller and add logic for updating showskills config
 
@@ -214,8 +214,7 @@ namespace IAGrim.UI.Tabs {
 
         private void buttonPatreon_Click(object? sender, RoutedEventArgs e)
         {
-            // TODO?
-            // Process.Start(new ProcessStartInfo{FileName = "https://www.patreon.com/itemassistant", UseShellExecute = true});
+            Process.Start(new ProcessStartInfo{FileName = "https://www.patreon.com/itemassistant", UseShellExecute = true});
         }
 
         private void helpWhatIsRegularUpdates_LinkClicked(object sender, RoutedEventArgs e) {
