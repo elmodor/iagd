@@ -93,6 +93,7 @@ public partial class MainWindow : Window
     private CsvParsingService? _csvParsingService;
     private CsvFileMonitor? _csvFileMonitor = new CsvFileMonitor();
     private CsvFileMonitor? _replicaCsvFileMonitor = new CsvFileMonitor();
+    private CsvFileMonitor? _messageFileMonitor = new CsvFileMonitor();
     private ItemReplicaRequesterService? _itemReplicaService;
 
     private BuddyItemsService? _buddyItemsService;
@@ -748,13 +749,13 @@ public partial class MainWindow : Window
             var settingsService = _serviceProvider.Get<SettingsService>();
             if (settingsService.GetLocal().UseDllHookFiles)
                 HookFiles.UpdateHookFiles(settingsService.GetLocal().GrimDawnLocation);
-            var messageMonitor = new CsvFileMonitor();
-            messageMonitor!.OnModified += (_, arg) => {
+            _messageFileMonitor!.OnModified += (_, arg) => {
                 var csvEvent = arg as CsvFileMonitor.CsvEvent;
+                Logger.Info($"Incoming item file detected: {csvEvent.Filename}");
                 if (!string.IsNullOrEmpty(csvEvent.Filename))
                     WineMessageHandler(csvEvent.Filename);
             };
-            messageMonitor.StartMonitoring(linuxHackPath, "*.msg");
+            _messageFileMonitor.StartMonitoring(linuxHackPath, "*.msg");
             // Logger.Info("Wine detected, starting file-based message polling");
             // _wineMessageTimer = new DispatcherTimer {
             //     Interval = TimeSpan.FromMilliseconds(500)
