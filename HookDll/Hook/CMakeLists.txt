@@ -145,6 +145,7 @@ add_library(Hook SHARED
     SettingsReader.cpp
     Conversions.cpp
     CrashReporter.cpp
+    GameContext.cpp
 )
 
 target_link_libraries(Hook PRIVATE
