@@ -14,6 +14,7 @@
 #include "VTableDispatch.h"
 #include "CrashReporter.h"
 #include "Conversions.h"
+#include "GameContext.h"
 
 #include "Logger.h"
 std::wstring GetIagdFolder();
@@ -182,8 +183,8 @@ ParsedSeedRequest* OnDemandSeedInfo::DeserializeReplicaCsv(std::vector<std::stri
 	item.transmuteRecord = tokens.at(idx++);
 
 	if (isNewDlc) {
-		item.ascendant1  = tokens.at(idx++);
-		item.ascendant2= tokens.at(idx++);
+		item.ascendant1 = tokens.at(idx++);
+		item.ascendant2 = tokens.at(idx++);
 	}
 
 	std::string s;
@@ -259,19 +260,6 @@ std::wstring GetFolderToReadFrom(std::wstring modName, bool isHardcore) {
 	return folder;
 }
 
-std::wstring OnDemandSeedInfo::GetModName(GAME::GameInfo* gameInfo) {
-	std::wstring modName;
-   GAME::GameWString gameName{};
-	if (fnGetGameInfoMode(gameInfo) != 1) { // Skip mod name if we're in Crucible, we don't treat that as a mod.
-		fnGetModNameArg(gameInfo, &gameName);
-      modName = GameStringToWString(gameName);
-		modName.erase(std::remove(modName.begin(), modName.end(), '\r'), modName.end());
-		modName.erase(std::remove(modName.begin(), modName.end(), '\n'), modName.end());
-	}
-
-	return modName;
-}
-
 /*
 * Process a single request on the named pipe
 */
@@ -282,23 +270,13 @@ void OnDemandSeedInfo::Process() {
 		while (m_isActive) {
 			Sleep(500);
 
-			auto engine = fnGetEngine(true);
-			if (engine == nullptr) {
-				LogToFile(LogLevel::INFO, L"Debug: NoEngine");
+			std::wstring modName;
+			bool isHardcore = false;
+			if (!GameContext::TryGet(modName, isHardcore)) {
 				continue;
 			}
 
-			GAME::GameInfo* gameInfo = fnGetGameInfo(engine);
-			if (gameInfo == nullptr) {
-				LogToFile(LogLevel::INFO, L"GameInfo is null, aborting..");
-				continue;
-			}
-
-			// Second of the two threads making unsynchronised Engine.dll calls; the other is in
-			// InventorySack_AddItem::ThreadMain. 
-			CrashReporter::Note("poll:seedinfo enter GameInfo", (uint64_t)gameInfo);
-			std::wstring folder = GetFolderToReadFrom(GetModName(gameInfo), fnGetHardcore(gameInfo, true));
-			CrashReporter::Note("poll:seedinfo leave GameInfo", (uint64_t)gameInfo);
+			std::wstring folder = GetFolderToReadFrom(modName, isHardcore);
 
 			for (auto& entry : boost::make_iterator_range(boost::filesystem::directory_iterator(folder), {})) {
 				auto filename = std::wstring(entry.path().c_str());
