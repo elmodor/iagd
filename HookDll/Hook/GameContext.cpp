@@ -1,4 +1,3 @@
-#include "stdafx.h"
 #include "GameContext.h"
 #include "Logger.h"
 #include "Conversions.h"
